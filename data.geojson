@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Tourism WebGIS Ubud, Bali</title>
+  <meta name="description" content="Smart Tourism WebGIS Ubud, Bali — Peta interaktif menampilkan restoran, kafe, hotel, toko, wisata, kantor polisi, dan bangunan dari data OpenStreetMap." />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- MarkerCluster JS -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple-dark:   #1a0533;
+      --purple-mid:    #3b0764;
+      --purple-main:   #7c3aed;
+      --purple-light:  #a855f7;
+      --purple-pale:   #e9d5ff;
+      --accent-pink:   #ec4899;
+      --glass-bg:      rgba(26, 5, 51, 0.82);
+      --glass-border:  rgba(168, 85, 247, 0.35);
+      --text-primary:  #f3e8ff;
+      --text-muted:    #c4b5fd;
+      --shadow:        0 8px 32px rgba(124, 58, 237, 0.35);
+    }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--purple-dark);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+    /* ===== HEADER ===== */
+    #header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: linear-gradient(135deg, rgba(26,5,51,0.97) 0%, rgba(59,7,100,0.95) 100%);
+      border-bottom: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow);
+    }
+    #header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #e9d5ff, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+    #header .subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    #header .logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--purple-main), var(--accent-pink));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(168,85,247,0.5);
+    }
+    #header .spacer { flex: 1; }
+    #header .osm-badge {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 4px 10px;
+    }
+    /* ===== MAP ===== */
+    #map {
+      position: fixed;
+      top: 62px; bottom: 0; left: 0; right: 0;
+      z-index: 1;
+    }
+    /* ===== LEGEND PANEL ===== */
+    #legend {
+      position: fixed;
+      bottom: 30px;
+      right: 16px;
+      z-index: 900;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      min-width: 190px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    #legend h3 {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--purple-light);
+      margin-bottom: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      cursor: default;
+      transition: opacity 0.2s;
+    }
+    .legend-item:hover { opacity: 0.8; }
+    .legend-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .legend-polygon {
+      width: 14px; height: 10px;
+      border-radius: 3px;
+      border: 2px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    /* ===== STATS PANEL ===== */
+    #stats {
+      position: fixed;
+      top: 78px;
+      right: 16px;
+      z-index: 900;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      display: flex;
+      gap: 14px;
+    }
+    .stat-item { text-align: center; }
+    .stat-num {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--purple-light);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+    /* ===== CUSTOM LEAFLET POPUP ===== */
+    .leaflet-popup {
+      z-index: 1100 !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: linear-gradient(135deg, rgba(26,5,51,0.98), rgba(59,7,100,0.95));
+      border: 1px solid var(--glass-border);
+      border-radius: 14px !important;
+      box-shadow: 0 8px 32px rgba(124,58,237,0.4);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      backdrop-filter: blur(12px);
+      pointer-events: auto;
+    }
+    .leaflet-popup-tip {
+      background: rgba(59,7,100,0.95) !important;
+    }
+    .leaflet-popup-close-button {
+      color: var(--purple-light) !important;
+      font-size: 18px !important;
+      padding: 6px 8px !important;
+    }
+    .leaflet-popup-close-button:hover { color: var(--accent-pink) !important; }
+    /* ===== POPUP CONTENT ===== */
+    .popup-inner {
+      padding: 4px 2px;
+      min-width: 180px;
+      max-width: 240px;
+    }
+    .popup-category-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+    .popup-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f3e8ff;
+      line-height: 1.3;
+      margin-bottom: 6px;
+    }
+    .popup-name.no-name { color: var(--text-muted); font-style: italic; font-weight: 400; }
+    .popup-detail {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      margin-bottom: 3px;
+    }
+    .popup-detail span.icon { opacity: 0.8; }
+    .popup-divider {
+      border: none;
+      border-top: 1px solid var(--glass-border);
+      margin: 8px 0;
+    }
+    /* ===== LEAFLET OVERRIDES ===== */
+    .leaflet-control-zoom a {
+      background: var(--glass-bg) !important;
+      color: var(--purple-light) !important;
+      border-color: var(--glass-border) !important;
+    }
+    .leaflet-control-zoom a:hover {
+      background: var(--purple-mid) !important;
+      color: #fff !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(26,5,51,0.75) !important;
+      color: var(--text-muted) !important;
+      font-size: 10px !important;
+    }
+    .leaflet-control-attribution a { color: var(--purple-light) !important; }
+    /* ===== LOADING OVERLAY ===== */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--purple-dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid rgba(168,85,247,0.2);
+      border-top-color: var(--purple-light);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+    }
+    #loading .loading-progress {
+      font-size: 0.75rem;
+      color: var(--purple-light);
+      margin-top: -10px;
+    }
+    /* ===== TOGGLE LEGEND BUTTON ===== */
+    #legend-toggle {
+      position: fixed;
+      bottom: 30px;
+      right: 222px;
+      z-index: 901;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
+      width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--purple-light);
+      font-size: 1.1rem;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      transition: background 0.2s, transform 0.2s;
+    }
+    #legend-toggle:hover { background: var(--purple-mid); transform: scale(1.08); }
+    /* ===== MARKER CLUSTER STYLING ===== */
+    .marker-cluster {
+      background: transparent !important;
+    }
+    .marker-cluster div {
+      width: 36px !important;
+      height: 36px !important;
+      margin-left: 0 !important;
+      margin-top: 0 !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-family: 'Inter', sans-serif !important;
+      font-weight: 700 !important;
+      font-size: 0.8rem !important;
+      color: #f3e8ff !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+    }
+    .marker-cluster-small {
+      width: 40px !important;
+      height: 40px !important;
+    }
+    .marker-cluster-small div {
+      width: 32px !important;
+      height: 32px !important;
+      background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+      border: 3px solid rgba(233, 213, 255, 0.5) !important;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.6),
+                  0 0 28px rgba(124, 58, 237, 0.3) !important;
+      font-size: 0.75rem !important;
+    }
+    .marker-cluster-medium {
+      width: 48px !important;
+      height: 48px !important;
+    }
+    .marker-cluster-medium div {
+      width: 40px !important;
+      height: 40px !important;
+      background: linear-gradient(135deg, #7c3aed, #ec4899) !important;
+      border: 3px solid rgba(236, 72, 153, 0.45) !important;
+      box-shadow: 0 0 18px rgba(236, 72, 153, 0.5),
+                  0 0 36px rgba(124, 58, 237, 0.3) !important;
+      font-size: 0.85rem !important;
+    }
+    .marker-cluster-large {
+      width: 56px !important;
+      height: 56px !important;
+    }
+    .marker-cluster-large div {
+      width: 46px !important;
+      height: 46px !important;
+      background: linear-gradient(135deg, #ec4899, #f43f5e) !important;
+      border: 3px solid rgba(244, 63, 94, 0.45) !important;
+      box-shadow: 0 0 22px rgba(244, 63, 94, 0.5),
+                  0 0 44px rgba(236, 72, 153, 0.3) !important;
+      font-size: 0.95rem !important;
+    }
+    /* Pulse animation on cluster hover */
+    .marker-cluster:hover div {
+      animation: cluster-pulse 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes cluster-pulse {
+      from { transform: scale(1); }
+      to   { transform: scale(1.12); }
+    }
+    /* Spider legs styling */
+    .leaflet-cluster-anim .leaflet-marker-icon,
+    .leaflet-cluster-anim .leaflet-marker-shadow {
+      transition: transform 0.3s ease, opacity 0.3s ease !important;
+    }
+    /* ===== SEARCH BAR ===== */
+    #search-container {
+      position: fixed;
+      top: 78px;
+      left: 16px;
+      z-index: 900;
+      width: 320px;
+    }
+    #search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    #search-input {
+      width: 100%;
+      padding: 10px 40px 10px 14px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #search-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+    #search-input:focus {
+      border-color: var(--purple-light);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+    }
+    #search-icon {
+      position: absolute;
+      right: 12px;
+      color: var(--purple-light);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+    #search-clear {
+      position: absolute;
+      right: 36px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: none;
+      padding: 2px 4px;
+      line-height: 1;
+    }
+    #search-clear:hover { color: var(--accent-pink); }
+    #search-results {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      max-height: 280px;
+      overflow-y: auto;
+      display: none;
+      scrollbar-width: thin;
+      scrollbar-color: var(--purple-main) transparent;
+    }
+    #search-results::-webkit-scrollbar { width: 5px; }
+    #search-results::-webkit-scrollbar-track { background: transparent; }
+    #search-results::-webkit-scrollbar-thumb { background: var(--purple-main); border-radius: 4px; }
+    .search-result-item {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid rgba(168,85,247,0.15);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover,
+    .search-result-item.active {
+      background: rgba(124, 58, 237, 0.25);
+    }
+    .search-result-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+    .search-result-info { flex: 1; min-width: 0; }
+    .search-result-name {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .search-result-cat {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .search-no-result {
+      padding: 16px 14px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    /* ===== LAYER CONTROL STYLING ===== */
+    .leaflet-control-layers {
+      background: var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      border-radius: 12px !important;
+      box-shadow: var(--shadow) !important;
+      backdrop-filter: blur(16px) !important;
+      color: var(--text-primary) !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+    .leaflet-control-layers-toggle {
+      width: 36px !important;
+      height: 36px !important;
+      background-color: var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      border-radius: 10px !important;
+      background-size: 20px 20px !important;
+      box-shadow: var(--shadow) !important;
+    }
+    .leaflet-control-layers-expanded {
+      padding: 10px 14px 10px 10px !important;
+    }
+    .leaflet-control-layers-list {
+      font-size: 0.8rem !important;
+    }
+    .leaflet-control-layers-separator {
+      border-top-color: var(--glass-border) !important;
+    }
+    .leaflet-control-layers label {
+      color: var(--text-primary) !important;
+      margin-bottom: 3px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      cursor: pointer !important;
+      padding: 2px 0 !important;
+    }
+    .leaflet-control-layers label:hover {
+      color: var(--purple-pale) !important;
+    }
+    .leaflet-control-layers input[type="checkbox"] {
+      accent-color: var(--purple-light);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    /* ===== SEARCH HIGHLIGHT PULSE ===== */
+    @keyframes search-highlight-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(168,85,247,0.7); }
+      70%  { box-shadow: 0 0 0 20px rgba(168,85,247,0); }
+      100% { box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+    }
+    .search-highlight-marker {
+      animation: search-highlight-pulse 1s ease-out 3;
+      border-radius: 50%;
+    }
+    /* ===== RESPONSIVE: MOBILE ===== */
+    @media (max-width: 768px) {
+      #header {
+        padding: 8px 12px;
+        gap: 10px;
+      }
+      #header h1 {
+        font-size: 1rem;
+      }
+      #header .subtitle {
+        font-size: 0.65rem;
+      }
+      #header .osm-badge {
+        display: none;
+      }
+      #header .logo-icon {
+        width: 32px; height: 32px;
+        font-size: 1rem;
+      }
+      #map {
+        top: 50px;
+      }
+      #stats {
+        top: 58px;
+        right: 8px;
+        left: 8px;
+        justify-content: center;
+        padding: 8px 10px;
+        gap: 10px;
+        border-radius: 10px;
+      }
+      .stat-num { font-size: 0.95rem; }
+      .stat-label { font-size: 0.58rem; }
+      #search-container {
+        top: auto;
+        bottom: 16px;
+        left: 8px;
+        right: 60px;
+        width: auto;
+        z-index: 902;
+      }
+      #legend {
+        bottom: 60px;
+        right: 8px;
+        padding: 12px 14px;
+        min-width: 160px;
+        max-height: 50vh;
+        overflow-y: auto;
+      }
+      #legend-toggle {
+        bottom: 60px;
+        right: auto;
+        left: 8px;
+      }
+      .leaflet-control-layers {
+        max-width: 180px !important;
+      }
+    }
+    @media (max-width: 480px) {
+      #header h1 { font-size: 0.88rem; }
+      #stats {
+        gap: 6px;
+        padding: 6px 8px;
+      }
+      .stat-num { font-size: 0.85rem; }
+      #search-container {
+        right: 50px;
+      }
+      #legend {
+        max-width: 160px;
+        font-size: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<!-- Loading Screen -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Memuat Smart Tourism WebGIS…</p>
+  <div class="loading-progress" id="loading-progress"></div>
+</div>
+<!-- Header -->
+<header id="header">
+  <div class="logo-icon">🗺️</div>
+  <div>
+    <h1>Smart Tourism WebGIS Ubud, Bali</h1>
+    <div class="subtitle">Data OpenStreetMap — Interaktif &amp; Responsif</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="osm-badge">© OpenStreetMap Contributors</div>
+</header>
+<!-- Stats -->
+<div id="stats">
+  <div class="stat-item"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total Fitur</div></div>
+  <div class="stat-item"><div class="stat-num" id="stat-restaurant">—</div><div class="stat-label">Restoran</div></div>
+  <div class="stat-item"><div class="stat-num" id="stat-cafe">—</div><div class="stat-label">Kafe</div></div>
+  <div class="stat-item"><div class="stat-num" id="stat-hotel">—</div><div class="stat-label">Hotel</div></div>
+</div>
+<!-- Search Bar -->
+<div id="search-container">
+  <div id="search-wrapper">
+    <input type="text" id="search-input" placeholder="Cari lokasi… (hotel, restoran, kafe, wisata)" autocomplete="off" />
+    <button id="search-clear" title="Hapus pencarian">✕</button>
+    <span id="search-icon">🔍</span>
+  </div>
+  <div id="search-results"></div>
+</div>
+<!-- Map -->
+<div id="map"></div>
+<!-- Legend Toggle -->
+<button id="legend-toggle" title="Tampilkan/Sembunyikan Legenda">☰</button>
+<!-- Legend -->
+<div id="legend">
+  <h3>Legenda</h3>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444;color:#ef4444"></div>Restoran</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f472b6;color:#f472b6"></div>Kafe</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;color:#3b82f6"></div>Hotel / Akomodasi</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e;color:#22c55e"></div>Toko / Supermarket</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#111827;color:#6b7280"></div>Kantor Polisi</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;color:#f59e0b"></div>Wisata / Atraksi</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c4b5fd;color:#c4b5fd"></div>Lainnya</div>
+  <hr style="border-color:var(--glass-border);margin:8px 0">
+  <div class="legend-item">
+    <div class="legend-polygon" style="background:rgba(168,85,247,0.35);border-color:#a855f7;color:#a855f7"></div>
+    Bangunan (Polygon)
+  </div>
+  <div style="margin-top:10px;font-size:0.68rem;color:var(--text-muted)">Hover untuk highlight · Klik untuk popup</div>
+</div>
+<script>
+// ============================================================
+//  KONFIGURASI WARNA & KATEGORI
+// ============================================================
+const CATEGORY = {
+  restaurant: { color: '#ef4444', label: 'Restoran',         icon: '🍽️', badge: 'rgba(239,68,68,0.2)',   textColor: '#fca5a5' },
+  cafe:        { color: '#f472b6', label: 'Kafe',             icon: '☕',  badge: 'rgba(244,114,182,0.2)', textColor: '#fbcfe8' },
+  hotel:       { color: '#3b82f6', label: 'Hotel/Akomodasi',  icon: '🏨',  badge: 'rgba(59,130,246,0.2)', textColor: '#93c5fd' },
+  shop:        { color: '#22c55e', label: 'Toko/Supermarket', icon: '🛍️',  badge: 'rgba(34,197,94,0.2)',  textColor: '#86efac' },
+  police:      { color: '#111827', label: 'Kantor Polisi',    icon: '🚓',  badge: 'rgba(31,41,55,0.6)',   textColor: '#9ca3af' },
+  tourism:     { color: '#f59e0b', label: 'Wisata/Atraksi',   icon: '⭐',  badge: 'rgba(245,158,11,0.2)', textColor: '#fcd34d' },
+  other:       { color: '#c4b5fd', label: 'Lainnya',          icon: '📍',  badge: 'rgba(196,181,253,0.2)',textColor: '#ddd6fe' },
+};
+// Kategori akomodasi tourism
+const ACCOM_TYPES = new Set([
+  'hotel','motel','hostel','guest_house','chalet','apartment','resort','villa','inn','bungalow'
+]);
+// ============================================================
+//  KLASIFIKASI FITUR
+// ============================================================
+function classifyFeature(props) {
+  const amenity = (props.amenity || '').toLowerCase();
+  const tourism = (props.tourism || '').toLowerCase();
+  const shop    = (props.shop    || '').toLowerCase();
+  if (amenity === 'police')     return 'police';
+  if (amenity === 'restaurant' || amenity === 'fast_food') return 'restaurant';
+  if (amenity === 'cafe' || amenity === 'bar' || amenity === 'ice_cream') return 'cafe';
+  if (ACCOM_TYPES.has(tourism) || ACCOM_TYPES.has(amenity)) return 'hotel';
+  if (shop && shop !== '') return 'shop';
+  if (tourism && tourism !== '' && !ACCOM_TYPES.has(tourism)) return 'tourism';
+  if (amenity && amenity !== '') return 'other';
+  return 'other';
+}
+// ============================================================
+//  BUAT SVG MARKER ICON
+// ============================================================
+function createMarkerIcon(cat) {
+  const cfg = CATEGORY[cat];
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 28 38">
+      <defs>
+        <filter id="shadow-${cat}" x="-30%" y="-10%" width="160%" height="150%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${cfg.color}" flood-opacity="0.5"/>
+        </filter>
+      </defs>
+      <path d="M14 2 C7.4 2 2 7.4 2 14 C2 22 14 36 14 36 C14 36 26 22 26 14 C26 7.4 20.6 2 14 2 Z"
+            fill="${cfg.color}" filter="url(#shadow-${cat})" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="6" fill="rgba(255,255,255,0.92)"/>
+    </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+    popupAnchor: [0, -40],
+  });
+}
+// Precompute icons
+const ICONS = {};
+Object.keys(CATEGORY).forEach(k => { ICONS[k] = createMarkerIcon(k); });
+// ============================================================
+//  BUILD POPUP HTML
+// ============================================================
+function buildPopup(props, cat) {
+  const cfg  = CATEGORY[cat];
+  const name = props.name || '<em>Tanpa Nama</em>';
+  // Determine type label
+  let typeVal = '';
+  if (props.amenity) typeVal = props.amenity.replace(/_/g,' ');
+  else if (props.tourism) typeVal = props.tourism.replace(/_/g,' ');
+  else if (props.shop) typeVal = props.shop.replace(/_/g,' ');
+  const hours = props.opening_hours ? `<div class="popup-detail"><span class="icon">🕐</span>${props.opening_hours}</div>` : '';
+  const addr  = props['addr:street'] ? `<div class="popup-detail"><span class="icon">📍</span>${props['addr:street']}</div>` : '';
+  const phone = props.phone ? `<div class="popup-detail"><span class="icon">📞</span>${props.phone}</div>` : '';
+  const web   = props.website ? `<div class="popup-detail"><span class="icon">🌐</span><a href="${props.website}" target="_blank" style="color:var(--purple-light);text-decoration:none">${props.website.replace(/https?:\/\/(www\.)?/,'').substring(0,30)}…</a></div>` : '';
+  return `
+    <div class="popup-inner">
+      <div class="popup-category-badge" style="background:${cfg.badge};color:${cfg.textColor};">
+        ${cfg.icon} ${cfg.label}
+      </div>
+      <div class="popup-name${props.name ? '' : ' no-name'}">${name}</div>
+      <hr class="popup-divider"/>
+      ${typeVal ? `<div class="popup-detail"><span class="icon">🏷️</span>${typeVal}</div>` : ''}
+      ${hours}
+      ${addr}
+      ${phone}
+      ${web}
+      ${props.rooms ? `<div class="popup-detail"><span class="icon">🛏️</span>${props.rooms} kamar</div>` : ''}
+    </div>`;
+}
+// ============================================================
+//  INISIALISASI PETA (smooth zoom & pan)
+// ============================================================
+const map = L.map('map', {
+  center: [-8.5069, 115.2625],
+  zoom: 14,
+  zoomControl: true,
+  attributionControl: true,
+  zoomSnap: 0.5,
+  zoomDelta: 0.5,
+  wheelDebounceTime: 80,
+  wheelPxPerZoomLevel: 120,
+});
+// Tile layer OpenStreetMap
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+  maxZoom: 19,
+}).addTo(map);
+// Purple overlay untuk memberi nuansa tema ungu pada tile
+const purpleOverlay = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
+  opacity: 0,
+  maxZoom: 19,
+});
+// ============================================================
+//  STATISTIK COUNTER
+// ============================================================
+const stats = { total: 0, restaurant: 0, cafe: 0, hotel: 0 };
+function updateStats() {
+  document.getElementById('stat-total').textContent      = stats.total.toLocaleString('id');
+  document.getElementById('stat-restaurant').textContent = stats.restaurant.toLocaleString('id');
+  document.getElementById('stat-cafe').textContent       = stats.cafe.toLocaleString('id');
+  document.getElementById('stat-hotel').textContent      = stats.hotel.toLocaleString('id');
+}
+// ============================================================
+//  SEARCH INDEX — stores {name, cat, latlng, marker/layer}
+// ============================================================
+const searchIndex = [];
+let searchHighlightCircle = null;
+// ============================================================
+//  LAYER GROUPS PER CATEGORY (for Layer Control)
+// ============================================================
+const categoryClusterGroups = {};
+Object.keys(CATEGORY).forEach(cat => {
+  categoryClusterGroups[cat] = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: true,
+    zoomToBoundsOnClick: true,
+    disableClusteringAtZoom: 18,
+    animate: true,
+    animateAddingMarkers: false,
+    spiderfyDistanceMultiplier: 1.5,
+    iconCreateFunction: function(cluster) {
+      const count = cluster.getChildCount();
+      let sizeClass = 'small';
+      if (count >= 50) sizeClass = 'large';
+      else if (count >= 15) sizeClass = 'medium';
+      return L.divIcon({
+        html: '<div>' + count + '</div>',
+        className: 'marker-cluster marker-cluster-' + sizeClass,
+        iconSize: L.point(sizeClass === 'large' ? 56 : sizeClass === 'medium' ? 48 : 40,
+                          sizeClass === 'large' ? 56 : sizeClass === 'medium' ? 48 : 40),
+      });
+    },
+  });
+});
+// Polygon layer (bangunan/polygon — not clustered)
+const polygonLayer = L.layerGroup();
+// ============================================================
+//  LOAD & RENDER GEOJSON
+// ============================================================
+const loadingProgress = document.getElementById('loading-progress');
+fetch('data.geojson')
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' — Gagal memuat data.geojson');
+    loadingProgress.textContent = 'Mengunduh data GeoJSON…';
+    return r.json();
+  })
+  .then(data => {
+    loadingProgress.textContent = 'Memproses ' + (data.features ? data.features.length : 0) + ' fitur…';
+    if (!data.features || data.features.length === 0) {
+      throw new Error('File GeoJSON kosong atau tidak memiliki fitur.');
+    }
+    L.geoJSON(data, {
+      // --- POLYGON STYLE ---
+      style: function(feature) {
+        if (feature.geometry.type === 'Point') return {};
+        const cat = classifyFeature(feature.properties);
+        const cfg = CATEGORY[cat];
+        return {
+          color: cfg.color,
+          fillColor: cfg.color,
+          fillOpacity: 0.25,
+          weight: 1.5,
+          opacity: 0.7,
+        };
+      },
+      // --- POINT MARKER ---
+      pointToLayer: function(feature, latlng) {
+        const cat    = classifyFeature(feature.properties);
+        const marker = L.marker(latlng, { icon: ICONS[cat] });
+        // Popup
+        marker.bindPopup(buildPopup(feature.properties, cat), {
+          maxWidth: 260,
+          className: 'purple-popup',
+        });
+        // Hover tooltip (nama singkat)
+        const tipName = feature.properties.name || CATEGORY[cat].label;
+        marker.bindTooltip(tipName, {
+          direction: 'top',
+          offset: [0, -36],
+          className: 'purple-tooltip',
+          sticky: false,
+        });
+        // Stats
+        stats.total++;
+        if (cat === 'restaurant') stats.restaurant++;
+        else if (cat === 'cafe') stats.cafe++;
+        else if (cat === 'hotel') stats.hotel++;
+        // Add to per-category cluster group
+        categoryClusterGroups[cat].addLayer(marker);
+        // Add to search index
+        searchIndex.push({
+          name: feature.properties.name || '',
+          cat: cat,
+          latlng: latlng,
+          marker: marker,
+          layer: null,
+          type: 'point',
+        });
+        return marker;
+      },
+      // --- ON EACH FEATURE (Polygon hover) ---
+      onEachFeature: function(feature, layer) {
+        const geomType = feature.geometry.type;
+        if (geomType === 'Point') return; // handled above
+        // Polygon stats
+        stats.total++;
+        const cat = classifyFeature(feature.properties);
+        if (cat === 'restaurant') stats.restaurant++;
+        else if (cat === 'cafe') stats.cafe++;
+        else if (cat === 'hotel') stats.hotel++;
+        // Popup
+        layer.bindPopup(buildPopup(feature.properties, cat), { maxWidth: 260 });
+        // Tooltip for polygon
+        const tipName = feature.properties.name || CATEGORY[cat].label;
+        layer.bindTooltip(tipName, {
+          direction: 'center',
+          className: 'purple-tooltip',
+          sticky: true,
+        });
+        // Hover highlight
+        layer.on('mouseover', function(e) {
+          layer.setStyle({ fillOpacity: 0.55, weight: 2.5 });
+          layer.bringToFront();
+        });
+        layer.on('mouseout', function(e) {
+          layer.setStyle({ fillOpacity: 0.25, weight: 1.5 });
+        });
+        // Double-click to zoom; single click opens popup (default Leaflet behavior)
+        layer.on('dblclick', function(e) {
+          L.DomEvent.stopPropagation(e);
+          map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+        });
+        polygonLayer.addLayer(layer);
+        // Add polygon to search index
+        const center = layer.getBounds().getCenter();
+        searchIndex.push({
+          name: feature.properties.name || '',
+          cat: cat,
+          latlng: center,
+          marker: null,
+          layer: layer,
+          type: 'polygon',
+        });
+      },
+    });
+    // Add all category cluster groups to map
+    Object.keys(categoryClusterGroups).forEach(cat => {
+      categoryClusterGroups[cat].addTo(map);
+    });
+    polygonLayer.addTo(map);
+    updateStats();
+    // ============================================================
+    //  LAYER CONTROL
+    // ============================================================
+    const overlayMaps = {};
+    overlayMaps['🍽️ Restoran']           = categoryClusterGroups.restaurant;
+    overlayMaps['☕ Kafe']                = categoryClusterGroups.cafe;
+    overlayMaps['🏨 Hotel/Akomodasi']    = categoryClusterGroups.hotel;
+    overlayMaps['🛍️ Toko/Supermarket']   = categoryClusterGroups.shop;
+    overlayMaps['⭐ Wisata/Atraksi']     = categoryClusterGroups.tourism;
+    overlayMaps['🚓 Kantor Polisi']      = categoryClusterGroups.police;
+    overlayMaps['📍 Lainnya']            = categoryClusterGroups.other;
+    overlayMaps['🏗️ Bangunan (Polygon)'] = polygonLayer;
+    L.control.layers(null, overlayMaps, {
+      collapsed: true,
+      position: 'topright',
+    }).addTo(map);
+    // ============================================================
+    //  INITIALIZE SEARCH
+    // ============================================================
+    initSearch();
+    // Hide loading screen
+    loadingProgress.textContent = 'Selesai!';
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      loading.classList.add('hidden');
+      setTimeout(() => { loading.style.display = 'none'; }, 500);
+    }, 400);
+  })
+  .catch(err => {
+    console.error('WebGIS Error:', err);
+    document.getElementById('loading').innerHTML =
+      `<div style="text-align:center;color:#fca5a5;padding:32px">
+        <div style="font-size:2rem;margin-bottom:12px">⚠️</div>
+        <b>Gagal memuat data GeoJSON</b><br/>
+        <small style="color:#c4b5fd">${err.message}</small><br/>
+        <small style="color:#c4b5fd;margin-top:8px;display:block">Pastikan file <code>data.geojson</code> ada di folder yang sama.</small><br/>
+        <small style="color:#c4b5fd;margin-top:4px;display:block">Buka file ini via server lokal (Live Server / python -m http.server)</small>
+        <button onclick="location.reload()" style="margin-top:16px;padding:8px 20px;background:var(--purple-main);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Inter,sans-serif;font-size:0.85rem">🔄 Coba Lagi</button>
+      </div>`;
+  });
+// ============================================================
+//  SEARCH FUNCTIONALITY
+// ============================================================
+function initSearch() {
+  const input     = document.getElementById('search-input');
+  const results   = document.getElementById('search-results');
+  const clearBtn  = document.getElementById('search-clear');
+  let activeIndex = -1;
+  // Filter searchIndex by query
+  function doSearch(query) {
+    if (!query || query.length < 2) {
+      results.style.display = 'none';
+      clearBtn.style.display = 'none';
+      return;
+    }
+    clearBtn.style.display = 'block';
+    const q = query.toLowerCase();
+    const matches = searchIndex
+      .filter(item => item.name && item.name.toLowerCase().includes(q))
+      .slice(0, 20); // limit results
+    if (matches.length === 0) {
+      results.innerHTML = '<div class="search-no-result">Tidak ditemukan hasil untuk "<b>' + escapeHtml(query) + '</b>"</div>';
+      results.style.display = 'block';
+      activeIndex = -1;
+      return;
+    }
+    results.innerHTML = matches.map((item, i) => {
+      const cfg = CATEGORY[item.cat];
+      return `<div class="search-result-item" data-index="${i}">
+        <span class="search-result-icon">${cfg.icon}</span>
+        <div class="search-result-info">
+          <div class="search-result-name">${highlightMatch(item.name, query)}</div>
+          <div class="search-result-cat">${cfg.label}</div>
+        </div>
+      </div>`;
+    }).join('');
+    results.style.display = 'block';
+    activeIndex = -1;
+    // Click handlers on results
+    results.querySelectorAll('.search-result-item').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        goToResult(matches[i]);
+        results.style.display = 'none';
+      });
+    });
+  }
+  function highlightMatch(text, query) {
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return escapeHtml(text);
+    const before = escapeHtml(text.substring(0, idx));
+    const match  = escapeHtml(text.substring(idx, idx + query.length));
+    const after  = escapeHtml(text.substring(idx + query.length));
+    return `${before}<b style="color:var(--purple-light)">${match}</b>${after}`;
+  }
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+  function goToResult(item) {
+    // Remove previous highlight
+    if (searchHighlightCircle) {
+      map.removeLayer(searchHighlightCircle);
+      searchHighlightCircle = null;
+    }
+    // Zoom to location
+    map.setView(item.latlng, 17, { animate: true, duration: 0.8 });
+    // Open popup
+    setTimeout(() => {
+      if (item.marker) {
+        // For clustered markers, we need to make sure the cluster is spiderfied
+        // Find which cluster group contains this marker
+        const cat = item.cat;
+        const cg = categoryClusterGroups[cat];
+        if (cg) {
+          cg.zoomToShowLayer(item.marker, function() {
+            item.marker.openPopup();
+          });
+        } else {
+          item.marker.openPopup();
+        }
+      } else if (item.layer) {
+        item.layer.openPopup();
+      }
+    }, 300);
+    // Add temporary highlight circle
+    searchHighlightCircle = L.circleMarker(item.latlng, {
+      radius: 25,
+      color: '#a855f7',
+      fillColor: '#a855f7',
+      fillOpacity: 0.2,
+      weight: 3,
+      opacity: 0.8,
+      className: 'search-highlight-marker',
+    }).addTo(map);
+    // Remove highlight after 4 seconds
+    setTimeout(() => {
+      if (searchHighlightCircle) {
+        map.removeLayer(searchHighlightCircle);
+        searchHighlightCircle = null;
+      }
+    }, 4000);
+    // Update input with selected name
+    input.value = item.name;
+  }
+  // Debounced input handler
+  let searchTimeout;
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      doSearch(input.value.trim());
+    }, 200);
+  });
+  // Keyboard navigation
+  input.addEventListener('keydown', (e) => {
+    const items = results.querySelectorAll('.search-result-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, items.length - 1);
+      updateActive(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      updateActive(items);
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      items[activeIndex].click();
+    } else if (e.key === 'Escape') {
+      results.style.display = 'none';
+      input.blur();
+    }
+  });
+  function updateActive(items) {
+    items.forEach((el, i) => {
+      el.classList.toggle('active', i === activeIndex);
+      if (i === activeIndex) el.scrollIntoView({ block: 'nearest' });
+    });
+  }
+  // Clear button
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    results.style.display = 'none';
+    clearBtn.style.display = 'none';
+    if (searchHighlightCircle) {
+      map.removeLayer(searchHighlightCircle);
+      searchHighlightCircle = null;
+    }
+    input.focus();
+  });
+  // Close results when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('search-container').contains(e.target)) {
+      results.style.display = 'none';
+    }
+  });
+  // Re-show results when input is focused and has value
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2) {
+      doSearch(input.value.trim());
+    }
+  });
+}
+// ============================================================
+//  CUSTOM TOOLTIP STYLE (inject CSS)
+// ============================================================
+const styleEl = document.createElement('style');
+styleEl.textContent = `
+  .purple-tooltip {
+    background: rgba(59,7,100,0.95) !important;
+    border: 1px solid rgba(168,85,247,0.4) !important;
+    border-radius: 8px !important;
+    color: #f3e8ff !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    padding: 4px 10px !important;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.3) !important;
+    white-space: nowrap !important;
+    max-width: 220px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .purple-tooltip::before { display: none !important; }
+  /* Leaflet marker hover animation */
+  .leaflet-marker-icon {
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+  .leaflet-marker-icon:hover {
+    transform: scale(1.2) translateY(-3px) !important;
+    filter: brightness(1.2) drop-shadow(0 4px 8px rgba(168,85,247,0.6));
+    z-index: 9999 !important;
+  }
+`;
+document.head.appendChild(styleEl);
+// ============================================================
+//  LEGEND TOGGLE
+// ============================================================
+const legendEl = document.getElementById('legend');
+const toggleBtn = document.getElementById('legend-toggle');
+let legendVisible = true;
+toggleBtn.addEventListener('click', () => {
+  legendVisible = !legendVisible;
+  legendEl.style.transform  = legendVisible ? '' : 'translateX(230px)';
+  legendEl.style.opacity    = legendVisible ? '1' : '0';
+  legendEl.style.pointerEvents = legendVisible ? '' : 'none';
+  toggleBtn.textContent = legendVisible ? '☰' : '◀';
+});
+</script>
+</body>
+</html>
