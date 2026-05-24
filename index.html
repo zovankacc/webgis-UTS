@@ -971,7 +971,7 @@ const polygonLayer = L.layerGroup();
 // ============================================================
 const loadingProgress = document.getElementById('loading-progress');
 
-fetch('data.geojson')
+fetch('data/data.geojson')
   .then(r => {
     if (!r.ok) throw new Error('HTTP ' + r.status + ' — Tidak bisa membuka data.geojson');
     loadingProgress.textContent = 'Mengunduh data GeoJSON…';
