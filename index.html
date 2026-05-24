@@ -191,6 +191,7 @@
       display: none;
       scrollbar-width: thin;
       scrollbar-color: var(--purple-main) transparent;
+      z-index: 1001 !important;
     }
 
     #search-results::-webkit-scrollbar { width: 4px; }
@@ -449,8 +450,14 @@
     }
     .leaflet-control-attribution a { color: var(--purple-light) !important; }
 
-    /* ===== LAYER CONTROL STYLING ===== */
+    /* ===== LAYER CONTROL STYLING — Diletakkan dibawah search bar di kiri ===== */
     .leaflet-control-layers {
+      position: fixed !important;
+      top: 202px !important;
+      left: 10px !important;
+      z-index: 900 !important;
+      width: 300px !important;
+      margin: 0 !important;
       background: var(--glass-bg) !important;
       border: 1px solid var(--glass-border) !important;
       border-radius: 12px !important;
@@ -460,20 +467,11 @@
       font-family: 'Inter', sans-serif !important;
     }
 
-    .leaflet-control-layers-toggle {
-      width: 36px !important;
-      height: 36px !important;
-      background-color: var(--glass-bg) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 10px !important;
-      background-size: 18px 18px !important;
-      box-shadow: var(--shadow) !important;
+    .leaflet-control-layers-expanded {
+      padding: 12px 14px !important;
+      border: none !important;
     }
 
-    .leaflet-control-layers-expanded {
-      padding: 10px 14px 12px 10px !important;
-      min-width: 180px !important;
-    }
 
     .leaflet-control-layers-list {
       font-size: 0.8rem !important;
@@ -511,11 +509,11 @@
 
     /* Layer control title */
     .leaflet-control-layers-overlays::before {
-      content: 'LAYER CONTROL';
+      content: 'KATEGORI LOKASI';
       display: block;
       font-size: 0.68rem;
       font-weight: 600;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       color: var(--purple-light);
       margin-bottom: 8px;
       padding-bottom: 6px;
@@ -674,6 +672,17 @@
         right: 58px;
         width: auto;
         z-index: 902;
+      }
+
+      .leaflet-control-layers {
+        position: fixed !important;
+        top: auto !important;
+        bottom: 64px !important; /* Di atas search bar mobile */
+        left: 8px !important;
+        right: 58px !important;
+        width: auto !important;
+        max-height: 35vh !important;
+        overflow-y: auto !important;
       }
 
       #legend {
@@ -1139,8 +1148,8 @@ fetch('data/data.geojson')
     overlayMaps['📍 Lainnya']               = categoryClusterGroups.other;
 
     L.control.layers(null, overlayMaps, {
-      collapsed: false, // Terbuka agar memudahkan akses
-      position: 'topright',
+      collapsed: false, // Terbuka agar selalu tampil di bawah search bar
+      position: 'topleft', // CSS kita akan mengatur posisi fixed tepat di bawah search bar
     }).addTo(map);
 
     // ============================================================
