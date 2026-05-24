@@ -1134,7 +1134,7 @@
         // LOAD GEOJSON DATA
         // ============================================================
         function loadGeoJSON() {
-            fetch('data.geojson')
+            fetch('data/data.geojson')
                 .then(function(response) {
                     if (!response.ok) {
                         throw new Error('HTTP Error: ' + response.status);
