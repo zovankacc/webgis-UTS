@@ -1209,19 +1209,41 @@ function initSearch() {
     // Zoom ke lokasi
     map.setView(item.latlng, 17, { animate: true, duration: 0.9 });
 
-    // Buka popup
-    setTimeout(() => {
-      if (item.marker) {
-        const cg = categoryClusterGroups[item.cat];
-        if (cg) {
-          cg.zoomToShowLayer(item.marker, () => { item.marker.openPopup(); });
-        } else {
-          item.marker.openPopup();
-        }
-      } else if (item.layer) {
-        item.layer.openPopup();
-      }
-    }, 350);
+        // Popup
+        layer.bindPopup(buildPopup(feature.properties, cat), { maxWidth: 260 });
+        // Tooltip for polygon
+        const tipName = feature.properties.name || CATEGORY[cat].label;
+        layer.bindTooltip(tipName, {
+          direction: 'center',
+          className: 'purple-tooltip',
+          sticky: true,
+        });
+        // Hover highlight
+        layer.on('mouseover', function(e) {
+          layer.setStyle({ fillOpacity: 0.55, weight: 2.5 });
+          layer.bringToFront();
+        });
+        layer.on('mouseout', function(e) {
+          layer.setStyle({ fillOpacity: 0.25, weight: 1.5 });
+        });
+        // Double-click to zoom; single click opens popup (default Leaflet behavior)
+        layer.on('dblclick', function(e) {
+          L.DomEvent.stopPropagation(e);
+          map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+        });
+        polygonLayer.addLayer(layer);
+        // Add polygon to search index
+        const center = layer.getBounds().getCenter();
+        searchIndex.push({
+          name: feature.properties.name || '',
+          cat: cat,
+          latlng: center,
+          marker: null,
+          layer: layer,
+          type: 'polygon',
+        });
+      },
+    });
 
     // Highlight circle
     searchHighlightCircle = L.circleMarker(item.latlng, {
