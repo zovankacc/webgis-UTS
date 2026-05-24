@@ -1,1197 +1,1511 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Tourism WebGIS Ubud, Bali</title>
-  <meta name="description" content="Smart Tourism WebGIS Ubud, Bali — Peta interaktif menampilkan restoran, kafe, hotel, toko, wisata, kantor polisi, dan bangunan dari data OpenStreetMap." />
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- MarkerCluster CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- MarkerCluster JS -->
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <style>
-    /* ===== RESET & BASE ===== */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --purple-dark:   #1a0533;
-      --purple-mid:    #3b0764;
-      --purple-main:   #7c3aed;
-      --purple-light:  #a855f7;
-      --purple-pale:   #e9d5ff;
-      --accent-pink:   #ec4899;
-      --glass-bg:      rgba(26, 5, 51, 0.85);
-      --glass-border:  rgba(168, 85, 247, 0.35);
-      --text-primary:  #f3e8ff;
-      --text-muted:    #c4b5fd;
-      --shadow:        0 8px 32px rgba(124, 58, 237, 0.35);
-    }
-    html, body {
-      height: 100%;
-      font-family: 'Inter', sans-serif;
-      background: var(--purple-dark);
-      color: var(--text-primary);
-      overflow: hidden;
-    }
-    /* ===== HEADER ===== */
-    #header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 1000;
-      background: linear-gradient(135deg, rgba(26,5,51,0.97) 0%, rgba(59,7,100,0.95) 100%);
-      border-bottom: 1px solid var(--glass-border);
-      backdrop-filter: blur(12px);
-      padding: 12px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: var(--shadow);
-      height: 62px;
-    }
-    #header h1 {
-      font-size: 1.2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #e9d5ff, #a855f7, #ec4899);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      letter-spacing: -0.02em;
-    }
-    #header .subtitle {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-top: 1px;
-      white-space: nowrap;
-    }
-    #header .logo-icon {
-      width: 38px; height: 38px;
-      background: linear-gradient(135deg, var(--purple-main), var(--accent-pink));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem;
-      flex-shrink: 0;
-      box-shadow: 0 0 16px rgba(168,85,247,0.5);
-    }
-    #header .spacer { flex: 1; }
-    #header .osm-badge {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 4px 10px;
-      white-space: nowrap;
-    }
-    /* ===== MAP ===== */
-    #map {
-      position: fixed;
-      top: 62px; bottom: 0; left: 0; right: 0;
-      z-index: 1;
-    }
- /* ===== LEAFLET ZOOM CONTROL - pastikan di atas search ===== */
-    .leaflet-top.leaflet-left {
-      top: 10px;
-      left: 10px;
-    }
-    /* ===== SEARCH BAR — di KIRI, di bawah zoom control ===== */
-    #search-container {
-      position: fixed;
-      /* Zoom control (2 tombol, ~70px) + gap 10px dari top map + header 62px */
-      top: 152px;
-      left: 10px;
-      z-index: 900;
-      width: 300px;
-    }
-    #search-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    #search-input {
-      width: 100%;
-      padding: 9px 60px 9px 14px;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 10px;
-      color: var(--text-primary);
-      font-family: 'Inter', sans-serif;
-      font-size: 0.82rem;
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    #search-input::placeholder {
-      color: var(--text-muted);
-      opacity: 0.8;
-    }
-    #search-input:focus {
-      border-color: var(--purple-light);
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
-    }
-    #search-icon {
-      position: absolute;
-      right: 12px;
-      color: var(--purple-light);
-      font-size: 1rem;
-      pointer-events: none;
-    }
-    #search-clear {
-      position: absolute;
-      right: 34px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      cursor: pointer;
-      display: none;
-      padding: 2px 4px;
-      line-height: 1;
-    }
-    #search-clear:hover { color: var(--accent-pink); }
-    #search-results {
-      position: absolute;
-      top: calc(100% + 5px);
-      left: 0;
-      right: 0;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 10px;
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      max-height: 260px;
-      overflow-y: auto;
-      display: none;
-      scrollbar-width: thin;
-      scrollbar-color: var(--purple-main) transparent;
-    }
-    #search-results::-webkit-scrollbar { width: 4px; }
-    #search-results::-webkit-scrollbar-track { background: transparent; }
-    #search-results::-webkit-scrollbar-thumb { background: var(--purple-main); border-radius: 4px; }
-    .search-result-item {
-      padding: 9px 12px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      cursor: pointer;
-      transition: background 0.15s;
-      border-bottom: 1px solid rgba(168,85,247,0.12);
-    }
-    .search-result-item:last-child { border-bottom: none; }
-    .search-result-item:hover,
-    .search-result-item.active {
-      background: rgba(124, 58, 237, 0.28);
-    }
-    .search-result-icon {
-      font-size: 1rem;
-      flex-shrink: 0;
-      width: 24px;
-      text-align: center;
-    }
-    .search-result-info { flex: 1; min-width: 0; }
-    .search-result-name {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .search-result-cat {
-      font-size: 0.66rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-top: 1px;
-    }
-    .search-no-result {
-      padding: 14px 12px;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.78rem;
-    }
-
-    /* ===== LEGEND PANEL ===== */
-    #legend {
-      position: fixed;
-      bottom: 30px;
-      right: 16px;
-      z-index: 900;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 16px 18px;
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      min-width: 190px;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-    #legend h3 {
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--purple-light);
-      margin-bottom: 12px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-      font-size: 0.8rem;
-      color: var(--text-primary);
-      cursor: default;
-      transition: opacity 0.2s;
-    }
-    .legend-item:hover { opacity: 0.8; }
-    .legend-dot {
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      flex-shrink: 0;
-      box-shadow: 0 0 6px currentColor;
-    }
-    .legend-polygon {
-      width: 14px; height: 10px;
-      border-radius: 3px;
-      border: 2px solid rgba(255,255,255,0.3);
-      flex-shrink: 0;
-      opacity: 0.7;
-    }
-    /* ===== STATS PANEL ===== */
-    #stats {
-      position: fixed;
-      top: 78px;
-      right: 16px;
-      z-index: 900;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 14px;
-      padding: 12px 16px;
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      display: flex;
-      gap: 14px;
-    }
-    .stat-item { text-align: center; }
-    .stat-num {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: var(--purple-light);
-      line-height: 1;
-    }
-    .stat-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-top: 2px;
-    }
-    /* ===== CUSTOM LEAFLET POPUP ===== */
-    .leaflet-popup {
-      z-index: 1100 !important;
-    }
-    .leaflet-popup-content-wrapper {
-        background: linear-gradient(135deg, rgba(26,5,51,0.98), rgba(59,7,100,0.95)) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 14px !important;
-        box-shadow: 0 8px 32px rgba(124,58,237,0.4) !important;
-      color: var(--text-primary) !important;
-      font-family: 'Inter', sans-serif !important;
-      backdrop-filter: blur(12px) !important;
-      pointer-events: auto !important;
-    }
-    .leaflet-popup-content {
-      margin: 14px 16px !important;
-      color: var(--text-primary) !important;
-    }
-    .leaflet-popup-tip {
-      background: rgba(59,7,100,0.95) !important;
-    }
-    .leaflet-popup-close-button {
-      color: var(--purple-light) !important;
-      font-size: 18px !important;
-      padding: 6px 8px !important;
-      z-index: 10 !important;
-    }
-    .leaflet-popup-close-button:hover { color: var(--accent-pink) !important; }
-    /* ===== POPUP CONTENT ===== */
-    .popup-inner {
-      padding: 2px 0;
-      min-width: 180px;
-      max-width: 240px;
-    }
-    .popup-category-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 0.68rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      padding: 3px 9px;
-      border-radius: 20px;
-      margin-bottom: 8px;
-    }
-    .popup-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #f3e8ff;
-      line-height: 1.3;
-      margin-bottom: 6px;
-    }
-    .popup-name.no-name { color: var(--text-muted); font-style: italic; font-weight: 400; }
-    .popup-detail {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: flex-start;
-      gap: 5px;
-      margin-bottom: 3px;
-      line-height: 1.4;
-    }
-    .popup-detail span.icon { opacity: 0.8; flex-shrink: 0; }
-    .popup-divider {
-      border: none;
-      border-top: 1px solid var(--glass-border);
-      margin: 8px 0;
-    }
-    /* ===== LEAFLET OVERRIDES ===== */
-    .leaflet-control-zoom {
-      border: none !important;
-      margin-left: 10px !important;
-      margin-top: 10px !important;
-    }
-
-    .leaflet-control-zoom a {
-      background: var(--glass-bg) !important;
-      color: var(--purple-light) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 8px !important;
-      backdrop-filter: blur(16px) !important;
-      box-shadow: var(--shadow) !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      width: 32px !important;
-      height: 32px !important;
-      line-height: 32px !important;
-      font-size: 1.1rem !important;
-      margin-bottom: 4px !important;
-    }
-    .leaflet-control-zoom a:hover {
-      background: var(--purple-mid) !important;
-      color: #fff !important;
-    }
-    .leaflet-control-attribution {
-      background: rgba(26,5,51,0.75) !important;
-      color: var(--text-muted) !important;
-      font-size: 10px !important;
-    }
-    .leaflet-control-attribution a { color: var(--purple-light) !important; }
-    /* ===== LAYER CONTROL STYLING ===== */
-    .leaflet-control-layers {
-      background: var(--glass-bg) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 12px !important;
-      box-shadow: var(--shadow) !important;
-      backdrop-filter: blur(16px) !important;
-      color: var(--text-primary) !important;
-      font-family: 'Inter', sans-serif !important;
-    }
-    .leaflet-control-layers-toggle {
-      width: 36px !important;
-      height: 36px !important;
-      background-color: var(--glass-bg) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 10px !important;
-      background-size: 18px 18px !important;
-      box-shadow: var(--shadow) !important;
-    }
-    .leaflet-control-layers-expanded {
-      padding: 10px 14px 12px 10px !important;
-      min-width: 180px !important;
-    }
-    .leaflet-control-layers-list {
-      font-size: 0.8rem !important;
-    }
-    .leaflet-control-layers-separator {
-      border-top: 1px solid var(--glass-border) !important;
-      margin: 6px 0 !important;
-    }
-    .leaflet-control-layers label {
-      color: var(--text-primary) !important;
-      margin-bottom: 4px !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 7px !important;
-      cursor: pointer !important;
-      padding: 3px 2px !important;
-      border-radius: 6px;
-      transition: background 0.15s;
-    }
-    .leaflet-control-layers label:hover {
-      background: rgba(168, 85, 247, 0.15) !important;
-      color: var(--purple-pale) !important;
-    }
-    .leaflet-control-layers input[type="checkbox"] {
-      accent-color: var(--purple-light);
-      width: 14px;
-      height: 14px;
-      cursor: pointer;
-      margin: 0 !important;
-    }
-    /* Layer control title */
-    .leaflet-control-layers-overlays::before {
-      content: 'LAYER';
-      display: block;
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      color: var(--purple-light);
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    /* ===== LOADING OVERLAY ===== */
-    #loading {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      background: var(--purple-dark);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      transition: opacity 0.5s ease;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    .spinner {
-      width: 52px; height: 52px;
-      border: 4px solid rgba(168,85,247,0.2);
-      border-top-color: var(--purple-light);
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loading p {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      letter-spacing: 0.04em;
-    }
-    #loading-progress {
-      font-size: 0.75rem;
-      color: var(--purple-light);
-      margin-top: -10px;
-    }
-    /* ===== TOGGLE LEGEND BUTTON ===== */
-    #legend-toggle {
-      position: fixed;
-      bottom: 30px;
-      right: 222px;
-      z-index: 901;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 50%;
-      width: 38px; height: 38px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      color: var(--purple-light);
-      font-size: 1.1rem;
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      transition: background 0.2s, transform 0.2s;
-    }
-    #legend-toggle:hover { background: var(--purple-mid); transform: scale(1.08); }
-    /* ===== MARKER CLUSTER STYLING ===== */
-    .marker-cluster {
-      background: transparent !important;
-    }
-    .marker-cluster div {
-      width: 36px !important;
-      height: 36px !important;
-      margin-left: 0 !important;
-      margin-top: 0 !important;
-      border-radius: 50% !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      font-family: 'Inter', sans-serif !important;
-      font-weight: 700 !important;
-      font-size: 0.8rem !important;
-      color: #f3e8ff !important;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
-    }
-    .marker-cluster-small { width: 40px !important; height: 40px !important; }
-    .marker-cluster-small div {
-      width: 32px !important;
-      height: 32px !important;
-      width: 32px !important; height: 32px !important;
-      background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
-      border: 3px solid rgba(233,213,255,0.5) !important;
-      box-shadow: 0 0 14px rgba(168,85,247,0.6), 0 0 28px rgba(124,58,237,0.3) !important;
-      font-size: 0.75rem !important;
-    }
-    .marker-cluster-medium { width: 48px !important; height: 48px !important; }
-    .marker-cluster-medium div {
-      width: 40px !important; height: 40px !important;
-      background: linear-gradient(135deg, #7c3aed, #ec4899) !important;
-      border: 3px solid rgba(236,72,153,0.45) !important;
-      box-shadow: 0 0 18px rgba(236,72,153,0.5), 0 0 36px rgba(124,58,237,0.3) !important;
-      font-size: 0.85rem !important;
-    }
-    .marker-cluster-large { width: 56px !important; height: 56px !important; }
-    .marker-cluster-large div {
-      width: 46px !important; height: 46px !important;
-      background: linear-gradient(135deg, #ec4899, #f43f5e) !important;
-      border: 3px solid rgba(244,63,94,0.45) !important;
-      box-shadow: 0 0 22px rgba(244,63,94,0.5), 0 0 44px rgba(236,72,153,0.3) !important;
-      font-size: 0.95rem !important;
-    }
-
-    .marker-cluster:hover div {
-      animation: cluster-pulse 0.6s ease-in-out infinite alternate;
-    }
-    @keyframes cluster-pulse {
-      from { transform: scale(1); }
-      to   { transform: scale(1.12); }
-    }
-    
-    .leaflet-cluster-anim .leaflet-marker-icon,
-    .leaflet-cluster-anim .leaflet-marker-shadow {
-      transition: transform 0.3s ease, opacity 0.3s ease !important;
-    }
-      /* ===== SEARCH HIGHLIGHT ===== */
-    @keyframes search-highlight-pulse {
-      0%   { opacity: 0.9; transform: scale(1); }
-      50%  { opacity: 0.4; transform: scale(1.15); }
-      100% { opacity: 0;   transform: scale(1.3); }
-    }
-    .search-highlight-marker {
-      animation: search-highlight-pulse 1s ease-out 3;
-      border-radius: 50%;
-    }
-    /* ===== RESPONSIVE: MOBILE ===== */
-    @media (max-width: 768px) {
-      #header { padding: 8px 12px; gap: 10px; height: 52px; }
-      #header h1 { font-size: 0.95rem; }
-      #header .subtitle { display: none; }
-      #header .osm-badge { display: none; }
-      #header .logo-icon { width: 32px; height: 32px; font-size: 1rem; }
-      #map { top: 52px; }
-      #stats {
-        top: 60px; right: 8px; left: 8px;
-        justify-content: center;
-        padding: 7px 10px; gap: 10px; border-radius: 10px;
-      }
-      .stat-num { font-size: 0.9rem; }
-      .stat-label { font-size: 0.58rem; }
-      #search-container {
-        top: auto;
-        bottom: 14px;
-        left: 8px;
-        right: 58px;
-        width: auto;
-        z-index: 902;
-      }
-      #legend {
-        bottom: 58px; right: 8px;
-        padding: 12px 14px; min-width: 160px;
-        max-height: 45vh; overflow-y: auto;
-      }
-      #legend-toggle {
-        bottom: 58px; right: auto; left: 8px;
-      }
-    }
-    @media (max-width: 480px) {
-      #header h1 { font-size: 0.82rem; }
-      #stats { gap: 6px; padding: 6px 8px; }
-      .stat-num { font-size: 0.82rem; }
-      #search-container { right: 50px; }
-      #legend { max-width: 155px; font-size: 0.74rem; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Tourism WebGIS Ubud, Bali - Peta interaktif persebaran fasilitas pariwisata dan fasilitas pendukung di wilayah Ubud, Bali menggunakan data GeoJSON dari OpenStreetMap.">
+    <title>Smart Tourism WebGIS Ubud, Bali</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <!-- Leaflet Control Search CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@4.0.0/dist/leaflet-search.min.css" />
+    <style>
+        /* ============================================================
+           CSS RESET & ROOT VARIABLES
+           ============================================================ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            /* Purple theme palette */
+            --primary-900: #2e1065;
+            --primary-800: #3b0764;
+            --primary-700: #581c87;
+            --primary-600: #7c3aed;
+            --primary-500: #8b5cf6;
+            --primary-400: #a78bfa;
+            --primary-300: #c4b5fd;
+            --primary-200: #ddd6fe;
+            --primary-100: #ede9fe;
+            --primary-50: #f5f3ff;
+            /* Accent colors */
+            --accent-glow: rgba(139, 92, 246, 0.3);
+            --accent-glass: rgba(255, 255, 255, 0.08);
+            --accent-glass-border: rgba(255, 255, 255, 0.12);
+            /* Category colors */
+            --color-restaurant: #9333ea;
+            --color-cafe: #ec4899;
+            --color-hotel: #3b82f6;
+            --color-shop: #ef4444;
+            --color-tourism: #f97316;
+            --color-police: #1e1e2e;
+            /* Neutral */
+            --dark-bg: #0f0a1a;
+            --card-bg: rgba(30, 20, 50, 0.85);
+            --card-border: rgba(139, 92, 246, 0.2);
+            --text-primary: #f1f0f5;
+            --text-secondary: #a5a0b8;
+            --text-muted: #6b6580;
+            /* Sizing */
+            --header-height: 64px;
+            --sidebar-width: 320px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            /* Transitions */
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        html, body {
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+        /* ============================================================
+           HEADER
+           ============================================================ */
+        #app-header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--header-height);
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: linear-gradient(135deg, var(--primary-900) 0%, var(--primary-800) 50%, #1a0533 100%);
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .header-logo {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary-600), var(--primary-400));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .header-title-group h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            background: linear-gradient(90deg, #fff, var(--primary-200));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header-title-group p {
+            font-size: 11px;
+            color: var(--primary-300);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #toggle-sidebar-btn {
+            display: none;
+            background: var(--accent-glass);
+            border: 1px solid var(--accent-glass-border);
+            color: white;
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: var(--transition-smooth);
+        }
+        #toggle-sidebar-btn:hover {
+            background: var(--primary-600);
+        }
+        .header-badge {
+            padding: 6px 14px;
+            background: var(--accent-glass);
+            border: 1px solid var(--accent-glass-border);
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--primary-200);
+            letter-spacing: 0.5px;
+        }
+        /* ============================================================
+           MAIN LAYOUT
+           ============================================================ */
+        #app-container {
+            display: flex;
+            height: calc(100vh - var(--header-height));
+            margin-top: var(--header-height);
+        }
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+        #sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--primary-900) 0%, #0d0718 100%);
+            border-right: 1px solid var(--card-border);
+            overflow-y: auto;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: var(--transition-smooth);
+            z-index: 1050;
+        }
+        #sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        #sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background: var(--primary-700);
+            border-radius: 4px;
+        }
+        /* Sidebar Section Card */
+        .sidebar-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            backdrop-filter: blur(12px);
+            transition: var(--transition-smooth);
+        }
+        .sidebar-card:hover {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+        }
+        .sidebar-card-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--primary-400);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-card-title .icon {
+            font-size: 14px;
+        }
+        /* ============================================================
+           STATISTICS
+           ============================================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stat-item {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.04));
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: var(--radius-sm);
+            padding: 12px 10px;
+            text-align: center;
+            transition: var(--transition-smooth);
+        }
+        .stat-item:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-500);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.15);
+        }
+        .stat-item.total {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, var(--primary-700), var(--primary-800));
+            border-color: var(--primary-500);
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary-300);
+            line-height: 1;
+        }
+        .stat-item.total .stat-number {
+            font-size: 32px;
+            color: #fff;
+        }
+        .stat-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .stat-item.total .stat-label {
+            color: var(--primary-200);
+        }
+        /* ============================================================
+           LEGEND
+           ============================================================ */
+        .legend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            transition: var(--transition-smooth);
+            cursor: default;
+        }
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent-glass-border);
+        }
+        .legend-color {
+            width: 14px; height: 14px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+        }
+        .legend-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .legend-count {
+            margin-left: auto;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.06);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        /* ============================================================
+           LAYER CONTROLS (custom styled)
+           ============================================================ */
+        .layer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            user-select: none;
+        }
+        .layer-toggle:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent-glass-border);
+        }
+        .layer-toggle input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border: 2px solid var(--text-muted);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            transition: var(--transition-smooth);
+        }
+        .layer-toggle input[type="checkbox"]:checked {
+            background: var(--primary-600);
+            border-color: var(--primary-600);
+        }
+        .layer-toggle input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .layer-toggle .layer-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .layer-toggle .layer-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        /* ============================================================
+           INFO PANEL (bottom)
+           ============================================================ */
+        .info-text {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .info-text a {
+            color: var(--primary-400);
+            text-decoration: none;
+        }
+        /* ============================================================
+           MAP CONTAINER
+           ============================================================ */
+        #map-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        /* ============================================================
+           LOADING OVERLAY
+           ============================================================ */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 9999;
+            background: linear-gradient(135deg, var(--primary-900), #0d0718);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            transition: opacity 0.5s ease;
+        }
+        #loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loader-spinner {
+            width: 60px; height: 60px;
+            border: 4px solid rgba(139, 92, 246, 0.2);
+            border-top-color: var(--primary-500);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loader-text {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--primary-300);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        /* ============================================================
+           ERROR TOAST
+           ============================================================ */
+        #error-toast {
+            position: fixed;
+            bottom: 30px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            z-index: 9999;
+            background: linear-gradient(135deg, #991b1b, #7f1d1d);
+            color: white;
+            padding: 14px 28px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 90%;
+            text-align: center;
+        }
+        #error-toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        /* ============================================================
+           LEAFLET POPUP CUSTOM STYLE
+           ============================================================ */
+        .leaflet-popup-content-wrapper {
+            background: linear-gradient(135deg, #1e1338, #150d26) !important;
+            color: var(--text-primary) !important;
+            border-radius: var(--radius-md) !important;
+            border: 1px solid var(--card-border) !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+            padding: 0 !important;
+            overflow: hidden;
+        }
+        .leaflet-popup-content {
+            margin: 0 !important;
+            min-width: 240px;
+            max-width: 300px;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .leaflet-popup-tip {
+            background: #1e1338 !important;
+            border: 1px solid var(--card-border) !important;
+            box-shadow: none !important;
+        }
+        .leaflet-popup-close-button {
+            color: var(--text-secondary) !important;
+            font-size: 22px !important;
+            width: 30px !important;
+            height: 30px !important;
+            line-height: 30px !important;
+            padding: 0 !important;
+            top: 6px !important;
+            right: 8px !important;
+            z-index: 10;
+        }
+        .leaflet-popup-close-button:hover {
+            color: white !important;
+        }
+        .popup-content {
+            padding: 0;
+        }
+        .popup-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+        }
+        .popup-category-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+        .popup-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.3;
+        }
+        .popup-body {
+            padding: 12px 16px 14px;
+        }
+        .popup-info-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .popup-info-row:last-child {
+            margin-bottom: 0;
+        }
+        .popup-info-icon {
+            font-size: 13px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .popup-info-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            min-width: 60px;
+        }
+        .popup-info-value {
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+        /* ============================================================
+           LEAFLET TOOLTIP CUSTOM
+           ============================================================ */
+        .leaflet-tooltip {
+            background: rgba(30, 19, 56, 0.95) !important;
+            color: #fff !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: 8px !important;
+            padding: 6px 12px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .leaflet-tooltip-top::before {
+            border-top-color: rgba(30, 19, 56, 0.95) !important;
+        }
+        .leaflet-tooltip-bottom::before {
+            border-bottom-color: rgba(30, 19, 56, 0.95) !important;
+        }
+        .leaflet-tooltip-left::before {
+            border-left-color: rgba(30, 19, 56, 0.95) !important;
+        }
+        .leaflet-tooltip-right::before {
+            border-right-color: rgba(30, 19, 56, 0.95) !important;
+        }
+        /* ============================================================
+           MARKER CLUSTER CUSTOM
+           ============================================================ */
+        .marker-cluster-small {
+            background-color: rgba(139, 92, 246, 0.3) !important;
+        }
+        .marker-cluster-small div {
+            background-color: var(--primary-600) !important;
+            color: white !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+        }
+        .marker-cluster-medium {
+            background-color: rgba(124, 58, 237, 0.35) !important;
+        }
+        .marker-cluster-medium div {
+            background-color: var(--primary-700) !important;
+            color: white !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+        }
+        .marker-cluster-large {
+            background-color: rgba(88, 28, 135, 0.4) !important;
+        }
+        .marker-cluster-large div {
+            background-color: var(--primary-800) !important;
+            color: white !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+        }
+        /* ============================================================
+           SEARCH CONTROL STYLING
+           ============================================================ */
+        .leaflet-control-search {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+            border-radius: var(--radius-md) !important;
+            border: 1px solid var(--card-border) !important;
+            background: rgba(30, 19, 56, 0.95) !important;
+            backdrop-filter: blur(12px) !important;
+        }
+        .leaflet-control-search .search-input {
+            background: transparent !important;
+            color: white !important;
+            border: none !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 13px !important;
+            min-width: 220px !important;
+        }
+        .leaflet-control-search .search-input::placeholder {
+            color: var(--text-muted) !important;
+        }
+        .leaflet-control-search .search-button {
+            background: transparent !important;
+            filter: brightness(2) !important;
+        }
+        .leaflet-control-search .search-cancel {
+            background: transparent !important;
+            filter: brightness(2) !important;
+        }
+        .leaflet-control-search .search-tooltip {
+            background: rgba(30, 19, 56, 0.97) !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+        }
+        .leaflet-control-search .search-tip {
+            color: var(--text-primary) !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 12px !important;
+            padding: 8px 14px !important;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1) !important;
+        }
+        .leaflet-control-search .search-tip:hover {
+            background: rgba(139, 92, 246, 0.15) !important;
+            color: white !important;
+        }
+        /* ============================================================
+           LEAFLET ZOOM CONTROL CUSTOM
+           ============================================================ */
+        .leaflet-control-zoom a {
+            background: rgba(30, 19, 56, 0.9) !important;
+            color: var(--primary-300) !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: 8px !important;
+            width: 36px !important;
+            height: 36px !important;
+            line-height: 36px !important;
+            font-size: 18px !important;
+            transition: var(--transition-smooth) !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: var(--primary-700) !important;
+            color: white !important;
+        }
+        .leaflet-control-zoom-in {
+            border-radius: 8px 8px 0 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .leaflet-control-zoom-out {
+            border-radius: 0 0 8px 8px !important;
+        }
+        /* ============================================================
+           HIGHLIGHT EFFECT (for search results)
+           ============================================================ */
+        @keyframes markerBounce {
+            0%, 100% { transform: translateY(0); }
+            25% { transform: translateY(-15px); }
+            50% { transform: translateY(0); }
+            75% { transform: translateY(-8px); }
+        }
+        .highlight-pulse {
+            animation: highlightPulse 2s ease-out;
+        }
+        @keyframes highlightPulse {
+            0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            70% { box-shadow: 0 0 0 30px rgba(139, 92, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 280px;
+                --header-height: 56px;
+            }
+            #toggle-sidebar-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #sidebar {
+                position: fixed;
+                top: var(--header-height);
+                left: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+                box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            .header-badge {
+                display: none;
+            }
+            .header-title-group h1 {
+                font-size: 15px;
+            }
+            .header-title-group p {
+                font-size: 10px;
+            }
+            .leaflet-control-search .search-input {
+                min-width: 160px !important;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .stat-number {
+                font-size: 20px;
+            }
+            .stat-item.total .stat-number {
+                font-size: 26px;
+            }
+        }
+    </style>
 </head>
 <body>
-<!-- Loading Screen -->
-<div id="loading">
-  <div class="spinner"></div>
-  <p>Memuat Smart Tourism WebGIS…</p>
-  <div class="loading-progress" id="loading-progress"></div>
-</div>
-<!-- Header -->
-<header id="header">
-  <div class="logo-icon">🗺️</div>
-  <div>
-    <h1>Smart Tourism WebGIS Ubud, Bali</h1>
-    <div class="subtitle">Data OpenStreetMap — Interaktif &amp; Responsif</div>
-  </div>
-  <div class="spacer"></div>
-  <div class="osm-badge">© OpenStreetMap Contributors</div>
-</header>
-<!-- Stats -->
-<div id="stats">
-  <div class="stat-item"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total Fitur</div></div>
-  <div class="stat-item"><div class="stat-num" id="stat-restaurant">—</div><div class="stat-label">Restoran</div></div>
-  <div class="stat-item"><div class="stat-num" id="stat-cafe">—</div><div class="stat-label">Kafe</div></div>
-  <div class="stat-item"><div class="stat-num" id="stat-hotel">—</div><div class="stat-label">Hotel</div></div>
-</div>
-<!-- Search Bar -->
-<div id="search-container">
-  <div id="search-wrapper">
-    <input type="text" id="search-input" placeholder="🔍 Cari lokasi, hotel, restoran…" autocomplete="off" />
-    <button id="search-clear" title="Hapus pencarian">✕</button>
-    <span id="search-icon">🔍</span>
-  </div>
-  <div id="search-results"></div>
-</div>
-<!-- Map -->
-<div id="map"></div>
-<!-- Legend Toggle -->
-<button id="legend-toggle" title="Tampilkan/Sembunyikan Legenda">☰</button>
-<!-- Legend -->
-<div id="legend">
-  <h3>Legenda</h3>
-  <div class="legend-item"><div class="legend-dot" style="background:#ef4444;color:#ef4444"></div>Restoran</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#f472b6;color:#f472b6"></div>Kafe</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;color:#3b82f6"></div>Hotel / Akomodasi</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#22c55e;color:#22c55e"></div>Toko / Supermarket</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#6b7280;color:#6b7280"></div>Kantor Polisi</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;color:#f59e0b"></div>Wisata / Atraksi</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#c4b5fd;color:#c4b5fd"></div>Lainnya</div>
-  <hr style="border-color:var(--glass-border);margin:8px 0">
-  <div class="legend-item">
-    <div class="legend-polygon" style="background:rgba(168,85,247,0.35);border-color:#a855f7;color:#a855f7"></div>
-    Bangunan (Polygon)
-  </div>
-  <div style="margin-top:10px;font-size:0.66rem;color:var(--text-muted)">Hover → highlight &amp; tooltip<br>Klik → popup informasi</div>
-</div>
-<script>
-// ============================================================
-//  KONFIGURASI WARNA & KATEGORI
-// ============================================================
-const CATEGORY = {
-  restaurant: { color: '#ef4444', label: 'Restoran',         icon: '🍽️', badge: 'rgba(239,68,68,0.2)',   textColor: '#fca5a5' },
-  cafe:        { color: '#f472b6', label: 'Kafe',             icon: '☕',  badge: 'rgba(244,114,182,0.2)', textColor: '#fbcfe8' },
-  hotel:       { color: '#3b82f6', label: 'Hotel/Akomodasi',  icon: '🏨',  badge: 'rgba(59,130,246,0.2)', textColor: '#93c5fd' },
-  shop:        { color: '#22c55e', label: 'Toko/Supermarket', icon: '🛍️',  badge: 'rgba(34,197,94,0.2)',  textColor: '#86efac' },
-  police:      { color: '#6b7280', label: 'Kantor Polisi',    icon: '🚓',  badge: 'rgba(107,114,128,0.3)',textColor: '#d1d5db' },
-  tourism:     { color: '#f59e0b', label: 'Wisata/Atraksi',   icon: '⭐',  badge: 'rgba(245,158,11,0.2)', textColor: '#fcd34d' },
-  other:       { color: '#c4b5fd', label: 'Lainnya',          icon: '📍',  badge: 'rgba(196,181,253,0.2)',textColor: '#ddd6fe' },
-};
-// Kategori akomodasi tourism
-const ACCOM_TYPES = new Set([
-  'hotel','motel','hostel','guest_house','chalet','apartment','resort','villa','inn','bungalow'
-]);
-// ============================================================
-//  KLASIFIKASI FITUR
-// ============================================================
-function classifyFeature(props) {
-  const amenity = (props.amenity || '').toLowerCase();
-  const tourism = (props.tourism || '').toLowerCase();
-  const shop    = (props.shop    || '').toLowerCase();
-  if (amenity === 'police')     return 'police';
-  if (amenity === 'restaurant' || amenity === 'fast_food') return 'restaurant';
-  if (amenity === 'cafe' || amenity === 'bar' || amenity === 'ice_cream') return 'cafe';
-  if (ACCOM_TYPES.has(tourism) || ACCOM_TYPES.has(amenity)) return 'hotel';
-  if (shop && shop !== '') return 'shop';
-  if (tourism && tourism !== '' && !ACCOM_TYPES.has(tourism)) return 'tourism';
-  if (amenity && amenity !== '') return 'other';
-  return 'other';
-}
-// ============================================================
-//  BUAT SVG MARKER ICON
-// ============================================================
-function createMarkerIcon(cat) {
-  const cfg = CATEGORY[cat];
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 28 38">
-      <defs>
-        <filter id="shadow-${cat}" x="-30%" y="-10%" width="160%" height="150%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${cfg.color}" flood-opacity="0.5"/>
-        </filter>
-      </defs>
-      <path d="M14 2 C7.4 2 2 7.4 2 14 C2 22 14 36 14 36 C14 36 26 22 26 14 C26 7.4 20.6 2 14 2 Z"
-            fill="${cfg.color}" filter="url(#shadow-${cat})" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
-      <circle cx="14" cy="14" r="6" fill="rgba(255,255,255,0.92)"/>
-    </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: '',
-    iconSize: [28, 38],
-    iconAnchor: [14, 38],
-    popupAnchor: [0, -42],
-  });
-}
-// Precompute icons
-const ICONS = {};
-Object.keys(CATEGORY).forEach(k => { ICONS[k] = createMarkerIcon(k); });
-// ============================================================
-//  BUILD POPUP HTML
-// ============================================================
-function buildPopup(props, cat) {
-  const cfg  = CATEGORY[cat];
-  const name = props.name || '<em>Tanpa Nama</em>';
-  
-  let typeVal = '';
-  if (props.amenity) typeVal = props.amenity.replace(/_/g, ' ');
-  else if (props.tourism) typeVal = props.tourism.replace(/_/g, ' ');
-  else if (props.shop) typeVal = props.shop.replace(/_/g, ' ');
-  const hours   = props.opening_hours    ? `<div class="popup-detail"><span class="icon">🕐</span><span>${props.opening_hours}</span></div>` : '';
-  const addr    = props['addr:street']   ? `<div class="popup-detail"><span class="icon">📍</span><span>${props['addr:street']}</span></div>` : '';
-  const phone   = props.phone            ? `<div class="popup-detail"><span class="icon">📞</span><span>${props.phone}</span></div>` : '';
-  const rooms   = props.rooms            ? `<div class="popup-detail"><span class="icon">🛏️</span><span>${props.rooms} kamar</span></div>` : '';
-  const cuisine = props.cuisine          ? `<div class="popup-detail"><span class="icon">🍴</span><span>${props.cuisine.replace(/_/g,' ')}</span></div>` : '';
-
-  return `
-    <div class="popup-inner">
-      <div class="popup-category-badge" style="background:${cfg.badge};color:${cfg.textColor};">
-        ${cfg.icon} ${cfg.label}
-      </div>
-      <div class="popup-name${props.name ? '' : ' no-name'}">${name}</div>
-      <hr class="popup-divider"/>
-      ${typeVal ? `<div class="popup-detail"><span class="icon">🏷️</span><span>${typeVal}</span></div>` : ''}
-      ${hours}${cuisine}${addr}${phone}${rooms}${website}
-    </div>`;
-}
-// ============================================================
-//  INISIALISASI PETA (smooth zoom & pan)
-// ============================================================
-const map = L.map('map', {
-  center: [-8.5069, 115.2625],
-  zoom: 14,
-  zoomControl: true,
-  attributionControl: true,
-  zoomSnap: 0.5,
-  zoomDelta: 0.5,
-  wheelDebounceTime: 80,
-  wheelPxPerZoomLevel: 120,
-});
-
-// Pastikan zoom control di kiri atas
-map.zoomControl.setPosition('topleft');
-
-// Tile layer OpenStreetMap
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
-  maxZoom: 19,
-}).addTo(map);
-// Purple overlay untuk memberi nuansa tema ungu pada tile
-const purpleOverlay = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
-  opacity: 0,
-  maxZoom: 19,
-});
-// ============================================================
-//  STATISTIK COUNTER
-// ============================================================
-const stats = { total: 0, restaurant: 0, cafe: 0, hotel: 0 };
-function updateStats() {
-  document.getElementById('stat-total').textContent      = stats.total.toLocaleString('id');
-  document.getElementById('stat-restaurant').textContent = stats.restaurant.toLocaleString('id');
-  document.getElementById('stat-cafe').textContent       = stats.cafe.toLocaleString('id');
-  document.getElementById('stat-hotel').textContent      = stats.hotel.toLocaleString('id');
-}
-// ============================================================
-//  SEARCH INDEX — stores {name, cat, latlng, marker/layer}
-// ============================================================
-const searchIndex = [];
-let searchHighlightCircle = null;
-// ============================================================
-//  LAYER GROUPS PER CATEGORY (for Layer Control)
-// ============================================================
-function makeClusterGroup() {
-  return L.markerClusterGroup({
-    maxClusterRadius: 50,
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: true,
-    zoomToBoundsOnClick: true,
-    disableClusteringAtZoom: 18,
-    animate: true,
-    animateAddingMarkers: false,
-    spiderfyDistanceMultiplier: 1.5,
-    iconCreateFunction: function(cluster) {
-      const count = cluster.getChildCount();
-      let sz = 'small';
-      if (count >= 50) sz = 'large';
-      else if (count >= 15) sz = 'medium';
-      const px = sz === 'large' ? 56 : sz === 'medium' ? 48 : 40;
-      return L.divIcon({
-        html: '<div>' + count + '</div>',
-        className: 'marker-cluster marker-cluster-' + sz,
-        iconSize: L.point(px, px),
-      });
-    },
-  });
-});
-}
-const categoryClusterGroups = {};
-Object.keys(CATEGORY).forEach(cat => {
-  categoryClusterGroups[cat] = makeClusterGroup();
-});
-// Polygon layer (bangunan/polygon — not clustered)
-const polygonLayer = L.layerGroup();
-// ============================================================
-//  LOAD & RENDER GEOJSON
-// ============================================================
-const loadingProgress = document.getElementById('loading-progress');
-fetch('data/data.geojson')
-  .then(r => {
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' — Gagal memuat data.geojson');
-    loadingProgress.textContent = 'Mengunduh data GeoJSON…';
-    return r.json();
-  })
-  .then(data => {
-    const total = data.features ? data.features.length : 0;
-    loadingProgress.textContent = 'Memproses ' + total + ' fitur…';
-
-    if (!data.features || total === 0) {
-      throw new Error('File GeoJSON kosong atau tidak memiliki fitur.');
-    }
-    L.geoJSON(data, {
-      // --- POLYGON STYLE ---
-      style: function(feature) {
-        if (feature.geometry.type === 'Point') return {};
-        const cat = classifyFeature(feature.properties);
-        const cfg = CATEGORY[cat];
-        return {
-          color: cfg.color,
-          fillColor: cfg.color,
-          fillOpacity: 0.22,
-          weight: 1.5,
-          opacity: 0.7,
-        };
-      },
-      // --- POINT MARKER ---
-      pointToLayer: function(feature, latlng) {
-        const cat    = classifyFeature(feature.properties);
-        const marker = L.marker(latlng, { icon: ICONS[cat] });
-        // Popup
-        marker.bindPopup(buildPopup(feature.properties, cat), {
-          maxWidth: 270,
-          minWidth: 200,
-          autoPan: true,
-          closeButton: true,
-        });
-        // Hover tooltip (nama singkat)
-        const tipName = feature.properties.name || CATEGORY[cat].label;
-        marker.bindTooltip(tipName, {
-          direction: 'top',
-          offset: [0, -36],
-          className: 'purple-tooltip',
-          sticky: false,
-        });
-        // Stats
-        stats.total++;
-        if (cat === 'restaurant') stats.restaurant++;
-        else if (cat === 'cafe') stats.cafe++;
-        else if (cat === 'hotel') stats.hotel++;
-        // Add to per-category cluster group
-        categoryClusterGroups[cat].addLayer(marker);
-        // Tambah ke search index
-        if (feature.properties.name) {
-          searchIndex.push({
-            name: feature.properties.name,
-            cat: cat,
-            latlng: latlng,
-            marker: marker,
-            layer: null,
-          });
-        }
-      // --- ON EACH FEATURE (Polygon hover) ---
-      onEachFeature: function(feature, layer) {
-        const geomType = feature.geometry.type;
-        if (geomType === 'Point') return; // sudah ditangani di atas
-
-        // stats
-        stats.total++;
-        const cat = classifyFeature(feature.properties);
-        if (cat === 'restaurant') stats.restaurant++;
-        else if (cat === 'cafe') stats.cafe++;
-        else if (cat === 'hotel') stats.hotel++;
-        // Popup — bisa diklik
-        layer.bindPopup(buildPopup(feature.properties, cat), {
-          maxWidth: 270,
-          minWidth: 200,
-          autoPan: true,
-          closeButton: true,
-        });
-
-        // Tooltip for polygon
-        const tipName = feature.properties.name || CATEGORY[cat].label;
-        layer.bindTooltip(tipName, {
-          direction: 'center',
-          className: 'purple-tooltip',
-          sticky: true,
-        });
-        // Hover highlight
-        layer.on('mouseover', function() {
-          layer.setStyle({ fillOpacity: 0.55, weight: 2.5 });
-          layer.bringToFront();
-        });
-        layer.on('mouseout', function() {
-          layer.setStyle({ fillOpacity: 0.25, weight: 1.5 });
-        });
-        // Double-click to zoom; single click opens popup (default Leaflet behavior)
-        layer.on('dblclick', function(e) {
-          L.DomEvent.stopPropagation(e);
-          if (layer.getBounds) {
-            map.fitBounds(layer.getBounds(), { padding: [40, 40] });
-          }
-        });
-        polygonLayer.addLayer(layer);
-        // Tambah polygon ke search index (berdasarkan center)
-        if (feature.properties.name && layer.getBounds) {
-          const center = layer.getBounds().getCenter();
-          searchIndex.push({
-            name: feature.properties.name,
-            cat: cat,
-            latlng: center,
-            marker: null,
-            layer: layer,
-          });
-        }
-      },
-    });
-    // Add all category cluster groups to map
-    Object.keys(categoryClusterGroups).forEach(cat => {
-      categoryClusterGroups[cat].addTo(map);
-    });
-    polygonLayer.addTo(map);
-    updateStats();
-    // ============================================================
-    //  LAYER CONTROL
-    // ============================================================
-    const overlayMaps = {};
-    overlayMaps['🍽️ Restoran']            = categoryClusterGroups.restaurant;
-    overlayMaps['☕ Kafe']                 = categoryClusterGroups.cafe;
-    overlayMaps['🏨 Hotel / Akomodasi']   = categoryClusterGroups.hotel;
-    overlayMaps['🛍️ Toko / Supermarket']  = categoryClusterGroups.shop;
-    overlayMaps['⭐ Wisata / Atraksi']    = categoryClusterGroups.tourism;
-    overlayMaps['🚓 Kantor Polisi']       = categoryClusterGroups.police;
-    overlayMaps['📍 Lainnya']             = categoryClusterGroups.other;
-    overlayMaps['🏗️ Bangunan (Polygon)']  = polygonLayer;
-    L.control.layers(null, overlayMaps, {
-      collapsed: true,
-      position: 'topright',
-    }).addTo(map);
-    // ============================================================
-    //  INITIALIZE SEARCH
-    // ============================================================
-    initSearch();
-    // Hide loading screen
-    loadingProgress.textContent = 'Selesai!';
-    setTimeout(() => {
-      const loading = document.getElementById('loading');
-      loading.classList.add('hidden');
-      setTimeout(() => { loading.style.display = 'none'; }, 500);
-    }, 400);
-  })
-  .catch(err => {
-    console.error('WebGIS Error:', err);
-    document.getElementById('loading').innerHTML =      `<div style="text-align:center;color:#fca5a5;padding:32px;max-width:360px">
-        <div style="font-size:2.5rem;margin-bottom:14px">⚠️</div>
-        <b style="font-size:1rem">Gagal memuat data GeoJSON</b><br/><br/>
-        <small style="color:#c4b5fd;display:block;margin-bottom:6px">${err.message}</small>
-        <small style="color:#c4b5fd;display:block;margin-bottom:4px">Pastikan file <code style="background:rgba(168,85,247,0.2);padding:1px 5px;border-radius:4px">data.geojson</code> ada di folder yang sama.</small>
-        <small style="color:#c4b5fd;display:block">Buka via server lokal: <code style="background:rgba(168,85,247,0.2);padding:1px 5px;border-radius:4px">Live Server</code> atau <code style="background:rgba(168,85,247,0.2);padding:1px 5px;border-radius:4px">python -m http.server</code></small>
-        <button onclick="location.reload()" style="margin-top:20px;padding:9px 24px;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border:none;border-radius:10px;cursor:pointer;font-family:Inter,sans-serif;font-size:0.85rem;font-weight:600;box-shadow:0 4px 16px rgba(124,58,237,0.4)">🔄 Coba Lagi</button>
-      </div>`;
-  });
-// ============================================================
-//  SEARCH FUNCTIONALITY
-// ============================================================
-function initSearch() {
-  const input    = document.getElementById('search-input');
-  const results  = document.getElementById('search-results');
-  const clearBtn = document.getElementById('search-clear');
-  const iconEl   = document.getElementById('search-icon');
-  let activeIdx  = -1;
-  let searchTimer;
-
-  function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.appendChild(document.createTextNode(str));
-    return d.innerHTML;
-  }
-  function highlightMatch(text, query) {
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return escapeHtml(text);
-    return escapeHtml(text.substring(0, idx))
-      + '<b style="color:var(--purple-light);font-weight:700">' + escapeHtml(text.substring(idx, idx + query.length)) + '</b>'
-      + escapeHtml(text.substring(idx + query.length));
-  }
-  function doSearch(q) {
-    if (!q || q.length < 2) {
-      results.style.display = 'none';
-      clearBtn.style.display = 'none';
-      iconEl.style.display = 'inline';
-      return;
-    }
-    clearBtn.style.display = 'block';
-    iconEl.style.display = 'none';
-    const ql = q.toLowerCase();
-    const matches = searchIndex.filter(item => item.name.toLowerCase().includes(ql)).slice(0, 20);
-    if (matches.length === 0) {
-      results.innerHTML = `<div class="search-no-result">Tidak ditemukan: "<b>${escapeHtml(q)}</b>"</div>`;
-      results.style.display = 'block';
-      activeIdx = -1;
-      return;
-    }
-    results.innerHTML = matches.map((item, i) => {
-      const cfg = CATEGORY[item.cat];
-      return `<div class="search-result-item" data-i="${i}">
-        <span class="search-result-icon">${cfg.icon}</span>
-        <div class="search-result-info">
-          <div class="search-result-name">${highlightMatch(item.name, q)}</div>
-          <div class="search-result-cat">${cfg.label}</div>
+    <!-- ============================================================
+         LOADING OVERLAY
+         ============================================================ -->
+    <div id="loading-overlay">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Memuat data WebGIS Ubud...</div>
+    </div>
+    <!-- ============================================================
+         ERROR TOAST
+         ============================================================ -->
+    <div id="error-toast"></div>
+    <!-- ============================================================
+         HEADER
+         ============================================================ -->
+    <header id="app-header">
+        <div class="header-left">
+            <div class="header-logo">🗺️</div>
+            <div class="header-title-group">
+                <h1>Smart Tourism WebGIS Ubud, Bali</h1>
+                <p>Persebaran Fasilitas Pariwisata &amp; Pendukung</p>
+            </div>
         </div>
-      </div>`;
-    }).join('');
-    results.style.display = 'block';
-    activeIdx = -1;
-    // Click handlers on results
-    results.querySelectorAll('.search-result-item').forEach((el, i) => {
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // mencegah blur sebelum click
-        goToResult(matches[i]);
-        input.value = matches[i].name;
-      });
-    });
-  }
-   function goToResult(item) {
-    // Remove previous highlight
-    if (searchHighlightCircle) {
-      map.removeLayer(searchHighlightCircle);
-      searchHighlightCircle = null;
-    }
-    // Zoom to location
-    map.setView(item.latlng, 17, { animate: true, duration: 0.8 });
-    // Buka popup
-    setTimeout(() => {
-      if (item.marker) {
-        const cg = categoryClusterGroups[item.cat];
-        if (cg) {
-          cg.zoomToShowLayer(item.marker, () => { item.marker.openPopup(); });
-        } else {
-          item.marker.openPopup();
+        <div class="header-right">
+            <span class="header-badge">📍 OpenStreetMap Data</span>
+            <button id="toggle-sidebar-btn" aria-label="Toggle sidebar">☰</button>
+        </div>
+    </header>
+    <!-- ============================================================
+         MAIN CONTAINER
+         ============================================================ -->
+    <div id="app-container">
+        <!-- SIDEBAR -->
+        <aside id="sidebar">
+            <!-- STATISTICS -->
+            <div class="sidebar-card" id="stats-card">
+                <div class="sidebar-card-title">
+                    <span class="icon">📊</span> Statistik Data
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item total">
+                        <div class="stat-number" id="stat-total">0</div>
+                        <div class="stat-label">Total Fitur</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-restaurant">0</div>
+                        <div class="stat-label">Restoran</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-cafe">0</div>
+                        <div class="stat-label">Kafe</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-hotel">0</div>
+                        <div class="stat-label">Hotel</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-shop">0</div>
+                        <div class="stat-label">Toko</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-tourism">0</div>
+                        <div class="stat-label">Wisata</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="stat-police">0</div>
+                        <div class="stat-label">Polisi</div>
+                    </div>
+                </div>
+            </div>
+            <!-- LAYER CONTROL -->
+            <div class="sidebar-card" id="layer-card">
+                <div class="sidebar-card-title">
+                    <span class="icon">🔲</span> Kontrol Layer
+                </div>
+                <div class="layer-list" id="layer-list">
+                    <label class="layer-toggle" for="layer-restaurant">
+                        <input type="checkbox" id="layer-restaurant" checked>
+                        <span class="layer-dot" style="background:var(--color-restaurant)"></span>
+                        <span class="layer-name">Restoran</span>
+                    </label>
+                    <label class="layer-toggle" for="layer-cafe">
+                        <input type="checkbox" id="layer-cafe" checked>
+                        <span class="layer-dot" style="background:var(--color-cafe)"></span>
+                        <span class="layer-name">Kafe</span>
+                    </label>
+                    <label class="layer-toggle" for="layer-hotel">
+                        <input type="checkbox" id="layer-hotel" checked>
+                        <span class="layer-dot" style="background:var(--color-hotel)"></span>
+                        <span class="layer-name">Hotel</span>
+                    </label>
+                    <label class="layer-toggle" for="layer-shop">
+                        <input type="checkbox" id="layer-shop" checked>
+                        <span class="layer-dot" style="background:var(--color-shop)"></span>
+                        <span class="layer-name">Supermarket / Toko</span>
+                    </label>
+                    <label class="layer-toggle" for="layer-tourism">
+                        <input type="checkbox" id="layer-tourism" checked>
+                        <span class="layer-dot" style="background:var(--color-tourism)"></span>
+                        <span class="layer-name">Objek Wisata</span>
+                    </label>
+                    <label class="layer-toggle" for="layer-police">
+                        <input type="checkbox" id="layer-police" checked>
+                        <span class="layer-dot" style="background:var(--color-police)"></span>
+                        <span class="layer-name">Kantor Polisi</span>
+                    </label>
+                </div>
+            </div>
+            <!-- LEGEND -->
+            <div class="sidebar-card" id="legend-card">
+                <div class="sidebar-card-title">
+                    <span class="icon">🎨</span> Legenda
+                </div>
+                <div class="legend-list" id="legend-list">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-restaurant)"></div>
+                        <span class="legend-label">Restoran</span>
+                        <span class="legend-count" id="legend-count-restaurant">0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-cafe)"></div>
+                        <span class="legend-label">Kafe</span>
+                        <span class="legend-count" id="legend-count-cafe">0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-hotel)"></div>
+                        <span class="legend-label">Hotel</span>
+                        <span class="legend-count" id="legend-count-hotel">0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-shop)"></div>
+                        <span class="legend-label">Supermarket / Toko</span>
+                        <span class="legend-count" id="legend-count-shop">0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-tourism)"></div>
+                        <span class="legend-label">Objek Wisata</span>
+                        <span class="legend-count" id="legend-count-tourism">0</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:var(--color-police)"></div>
+                        <span class="legend-label">Kantor Polisi</span>
+                        <span class="legend-count" id="legend-count-police">0</span>
+                    </div>
+                </div>
+            </div>
+            <!-- INFO -->
+            <div class="sidebar-card">
+                <div class="sidebar-card-title">
+                    <span class="icon">ℹ️</span> Informasi
+                </div>
+                <p class="info-text">
+                    Data bersumber dari <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
+                    melalui HOT Export Tool.<br><br>
+                    Gunakan fitur search untuk mencari lokasi, dan klik marker/polygon untuk melihat detail informasi.
+                </p>
+            </div>
+        </aside>
+        <!-- MAP -->
+        <div id="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+    <!-- ============================================================
+         SCRIPTS
+         ============================================================ -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <!-- Leaflet Search JS -->
+    <script src="https://unpkg.com/leaflet-search@4.0.0/dist/leaflet-search.min.js"></script>
+    <script>
+    (function() {
+        'use strict';
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
+        /** Kategori mapping & color config */
+        const CATEGORIES = {
+            restaurant: {
+                label: 'Restoran',
+                color: '#9333ea',
+                icon: '🍽️',
+                // Features matched by amenity or kategori
+                matchAmenity: ['restaurant', 'fast_food'],
+                matchKategori: ['restaurant', 'fast_food']
+            },
+            cafe: {
+                label: 'Kafe',
+                color: '#ec4899',
+                icon: '☕',
+                matchAmenity: ['cafe', 'ice_cream'],
+                matchKategori: ['cafe', 'ice_cream']
+            },
+            hotel: {
+                label: 'Hotel',
+                color: '#3b82f6',
+                icon: '🏨',
+                matchAmenity: [],
+                matchTourism: ['hotel', 'hostel', 'motel', 'guest_house', 'apartment', 'chalet'],
+                matchKategori: ['hotel', 'hostel', 'motel', 'guest_hous', 'apartment', 'chalet']
+            },
+            shop: {
+                label: 'Supermarket / Toko',
+                color: '#ef4444',
+                icon: '🛒',
+                matchShop: true, // any shop value
+                matchAmenity: ['marketplace'],
+                matchKategori: []
+            },
+            tourism: {
+                label: 'Objek Wisata',
+                color: '#f97316',
+                icon: '🏛️',
+                matchTourism: ['attraction', 'artwork', 'viewpoint', 'museum', 'gallery'],
+                matchKategori: ['attraction', 'artwork', 'viewpoint', 'museum', 'gallery']
+            },
+            police: {
+                label: 'Kantor Polisi',
+                color: '#1e1e2e',
+                icon: '🚔',
+                matchAmenity: ['police'],
+                matchKategori: ['police']
+            }
+        };
+        /** Map default center (Ubud) */
+        const MAP_CENTER = [-8.5069, 115.2624];
+        const MAP_ZOOM = 14;
+        // ============================================================
+        // HELPER: Classify a feature into a category key
+        // ============================================================
+        function classifyFeature(props) {
+            var amenity = (props.amenity || '').toLowerCase();
+            var tourism = (props.tourism || '').toLowerCase();
+            var shop = (props.shop || '').toLowerCase();
+            var kategori = (props.kategori || '').toLowerCase();
+            // Police first (highest priority)
+            if (amenity === 'police' || kategori === 'police') return 'police';
+            // Restaurant
+            if (['restaurant', 'fast_food'].indexOf(amenity) !== -1 ||
+                ['restaurant', 'fast_food'].indexOf(kategori) !== -1) return 'restaurant';
+            // Cafe
+            if (['cafe', 'ice_cream'].indexOf(amenity) !== -1 ||
+                ['cafe', 'ice_cream'].indexOf(kategori) !== -1) return 'cafe';
+            // Hotel (tourism-based accommodations)
+            var hotelTypes = ['hotel', 'hostel', 'motel', 'guest_house', 'apartment', 'chalet'];
+            var hotelKategori = ['hotel', 'hostel', 'motel', 'guest_hous', 'apartment', 'chalet'];
+            if (hotelTypes.indexOf(tourism) !== -1 || hotelKategori.indexOf(kategori) !== -1) return 'hotel';
+            // Tourism / attraction
+            var tourismTypes = ['attraction', 'artwork', 'viewpoint', 'museum', 'gallery'];
+            if (tourismTypes.indexOf(tourism) !== -1 || tourismTypes.indexOf(kategori) !== -1) return 'tourism';
+            // Shop (any remaining shop value)
+            if (shop || amenity === 'marketplace') return 'shop';
+            // Bar mapped to cafe
+            if (amenity === 'bar' || kategori === 'bar') return 'cafe';
+            // Default: if has tourism value not yet matched, classify as tourism
+            if (tourism) return 'tourism';
+            // Fallback to shop if nothing else
+            return 'shop';
         }
-      } else if (item.layer) {
-        item.layer.openPopup();
-      }
-    }, 350);
-    // Add temporary highlight circle
-    searchHighlightCircle = L.circleMarker(item.latlng, {
-      radius: 25,
-      color: '#a855f7',
-      fillColor: '#a855f7',
-      fillOpacity: 0.18,
-      weight: 2.5,
-      opacity: 0.9,
-      className: 'search-highlight-marker',
-    }).addTo(map);
-    // Remove highlight after 4 seconds
-    setTimeout(() => {
-      if (searchHighlightCircle) {
-        map.removeLayer(searchHighlightCircle);
-        searchHighlightCircle = null;
-      }
-    }, 4500);
-  function updateActive(items) {
-    items.forEach((el, i) => {
-      el.classList.toggle('active', i === activeIdx);
-      if (i === activeIdx) el.scrollIntoView({ block: 'nearest' });
-    });
-  }
-  // Debounced input handler
-  let searchTimeout;
-  input.addEventListener('input', () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => doSearch(input.value.trim()), 200);
-  });
-  // Keyboard navigation
-  input.addEventListener('keydown', (e) => {
-    const items = results.querySelectorAll('.search-result-item');
-    if (e.key === 'Escape') { results.style.display = 'none'; input.blur(); return; }
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); updateActive(items); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); updateActive(items); }
-    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); items[activeIdx].dispatchEvent(new Event('mousedown')); }
-  });
-   // Clear button
-  clearBtn.addEventListener('click', () => {
-    input.value = '';
-    results.style.display = 'none';
-    clearBtn.style.display = 'none';
-    iconEl.style.display = 'inline';
-    if (searchHighlightCircle) { map.removeLayer(searchHighlightCircle); searchHighlightCircle = null; }
-    input.focus();
-  });
-  // Close results when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!document.getElementById('search-container').contains(e.target)) {
-      results.style.display = 'none';
-    }
-  });
-  // Re-show results when input is focused and has value
-  input.addEventListener('focus', () => {
-    if (input.value.trim().length >= 2) {
-      doSearch(input.value.trim());
-    }
-    if (input.value.trim().length >= 2) doSearch(input.value.trim());
-  });
-}
-// ============================================================
-//  CUSTOM TOOLTIP STYLE (inject CSS)
-// ============================================================
-const styleEl = document.createElement('style');
-styleEl.textContent = `
-  .purple-tooltip {
-    background: rgba(59,7,100,0.95) !important;
-    border: 1px solid rgba(168,85,247,0.4) !important;
-    border-radius: 8px !important;
-    color: #f3e8ff !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    padding: 5px 11px !important;
-    box-shadow: 0 4px 16px rgba(124,58,237,0.3) !important;
-    white-space: nowrap !important;
-    max-width: 220px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-  }
-  .purple-tooltip::before { display: none !important; }
-  /* Leaflet marker hover animation */
-  .leaflet-marker-icon {
-    transition: transform 0.15s ease, filter 0.15s ease;
-  }
-  .leaflet-marker-icon:hover {
-    transform: scale(1.2) translateY(-3px) !important;
-    filter: brightness(1.2) drop-shadow(0 4px 8px rgba(168,85,247,0.6));
-    z-index: 9999 !important;
-  }
-`;
-document.head.appendChild(styleEl);
-// ============================================================
-//  LEGEND TOGGLE
-// ============================================================
-const legendEl  = document.getElementById('legend');
-const toggleBtn = document.getElementById('legend-toggle');
-let legendVisible = true;
-toggleBtn.addEventListener('click', () => {
-  legendVisible = !legendVisible;
-  legendEl.style.transform    = legendVisible ? '' : 'translateX(220px)';
-  legendEl.style.opacity      = legendVisible ? '1' : '0';
-  legendEl.style.pointerEvents = legendVisible ? '' : 'none';
-  toggleBtn.textContent = legendVisible ? '☰' : '◀';
-});
-</script>
+        // ============================================================
+        // HELPER: Create SVG marker icon
+        // ============================================================
+        function createSVGIcon(catKey) {
+            var cat = CATEGORIES[catKey] || CATEGORIES.shop;
+            var color = cat.color;
+            var emoji = cat.icon;
+            var svgHtml = '<div style="position:relative;width:36px;height:44px;">' +
+                '<svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg">' +
+                '<defs>' +
+                '<filter id="shadow-' + catKey + '" x="-20%" y="-10%" width="140%" height="140%">' +
+                '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.4"/>' +
+                '</filter>' +
+                '</defs>' +
+                '<path d="M18 42C18 42 33 26 33 16C33 7.72 26.28 1 18 1C9.72 1 3 7.72 3 16C3 26 18 42 18 42Z" ' +
+                'fill="' + color + '" stroke="#fff" stroke-width="2" filter="url(#shadow-' + catKey + ')"/>' +
+                '<circle cx="18" cy="16" r="10" fill="rgba(255,255,255,0.25)"/>' +
+                '</svg>' +
+                '<div style="position:absolute;top:7px;left:50%;transform:translateX(-50%);font-size:16px;line-height:1;text-align:center;">' + emoji + '</div>' +
+                '</div>';
+            return L.divIcon({
+                html: svgHtml,
+                className: 'custom-marker',
+                iconSize: [36, 44],
+                iconAnchor: [18, 44],
+                popupAnchor: [0, -42],
+                tooltipAnchor: [0, -38]
+            });
+        }
+        // ============================================================
+        // HELPER: Build popup HTML
+        // ============================================================
+        function buildPopupContent(props, catKey) {
+            var cat = CATEGORIES[catKey] || CATEGORIES.shop;
+            var name = props.name || 'Tidak diketahui';
+            var badgeBg = cat.color + '33'; // semi-transparent
+            var badgeBorder = cat.color + '66';
+            var html = '<div class="popup-content">';
+            html += '<div class="popup-header">';
+            html += '<div class="popup-category-badge" style="background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';color:' + cat.color + ';">';
+            html += cat.icon + ' ' + cat.label;
+            html += '</div>';
+            html += '<div class="popup-name">' + escapeHtml(name) + '</div>';
+            html += '</div>';
+            html += '<div class="popup-body">';
+            // Amenity / Tourism type
+            if (props.amenity) {
+                html += infoRow('🏷️', 'Amenity', capitalize(props.amenity));
+            }
+            if (props.tourism) {
+                html += infoRow('🌴', 'Tourism', capitalize(props.tourism));
+            }
+            if (props.shop) {
+                html += infoRow('🛍️', 'Toko', capitalize(props.shop));
+            }
+            // Opening hours
+            if (props.opening_hours) {
+                html += infoRow('🕐', 'Jam Buka', escapeHtml(props.opening_hours));
+            }
+            // Rooms
+            if (props.rooms) {
+                html += infoRow('🛏️', 'Kamar', props.rooms);
+            }
+            // Beds
+            if (props.beds) {
+                html += infoRow('🛌', 'Beds', props.beds);
+            }
+            // Building
+            if (props.building && props.building !== 'yes') {
+                html += infoRow('🏗️', 'Bangunan', capitalize(props.building));
+            }
+            // OSM ID
+            if (props.osm_id) {
+                html += infoRow('📌', 'OSM ID', props.osm_id);
+            }
+            html += '</div></div>';
+            return html;
+        }
+        function infoRow(icon, label, value) {
+            return '<div class="popup-info-row">' +
+                '<span class="popup-info-icon">' + icon + '</span>' +
+                '<span class="popup-info-label">' + label + '</span>' +
+                '<span class="popup-info-value">' + value + '</span>' +
+                '</div>';
+        }
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+        function capitalize(str) {
+            if (!str) return '';
+            return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
+        }
+        // ============================================================
+        // INIT MAP
+        // ============================================================
+        var map = L.map('map', {
+            center: MAP_CENTER,
+            zoom: MAP_ZOOM,
+            zoomControl: false,
+            preferCanvas: true
+        });
+        // Add zoom control to bottom-right
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        // Basemap: OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+        // ============================================================
+        // LAYER GROUPS & MARKER CLUSTER GROUPS
+        // ============================================================
+        var layerGroups = {};
+        var markerClusterGroups = {};
+        // Create a cluster group + layer group for each category
+        Object.keys(CATEGORIES).forEach(function(key) {
+            markerClusterGroups[key] = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true,
+                disableClusteringAtZoom: 18
+            });
+            layerGroups[key] = markerClusterGroups[key];
+            map.addLayer(markerClusterGroups[key]);
+        });
+        // ============================================================
+        // STATISTICS COUNTERS
+        // ============================================================
+        var stats = {
+            total: 0,
+            restaurant: 0,
+            cafe: 0,
+            hotel: 0,
+            shop: 0,
+            tourism: 0,
+            police: 0
+        };
+        // ============================================================
+        // SEARCH DATA ARRAY (for leaflet-search)
+        // ============================================================
+        var searchLayer = L.layerGroup();
+        // ============================================================
+        // LOAD GEOJSON DATA
+        // ============================================================
+        function loadGeoJSON() {
+            fetch('data.geojson')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP Error: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(geojsonData) {
+                    processGeoJSON(geojsonData);
+                    hideLoading();
+                })
+                .catch(function(error) {
+                    console.error('Error loading GeoJSON:', error);
+                    showError('Gagal memuat data GeoJSON: ' + error.message);
+                    hideLoading();
+                });
+        }
+        // ============================================================
+        // PROCESS GEOJSON
+        // ============================================================
+        function processGeoJSON(geojsonData) {
+            if (!geojsonData || !geojsonData.features || geojsonData.features.length === 0) {
+                showError('Data GeoJSON kosong atau tidak valid.');
+                return;
+            }
+            geojsonData.features.forEach(function(feature) {
+                if (!feature.geometry) return;
+                var props = feature.properties || {};
+                var catKey = classifyFeature(props);
+                var geomType = feature.geometry.type;
+                var name = props.name || 'Tidak diketahui';
+                // Increment stats
+                stats.total++;
+                if (stats.hasOwnProperty(catKey)) {
+                    stats[catKey]++;
+                }
+                // Popup content
+                var popupHtml = buildPopupContent(props, catKey);
+                if (geomType === 'Point') {
+                    // ---- POINT GEOMETRY ----
+                    var coords = feature.geometry.coordinates;
+                    var latlng = [coords[1], coords[0]];
+                    var icon = createSVGIcon(catKey);
+                    var marker = L.marker(latlng, { icon: icon });
+                    // Popup - bind and make sure it works on click
+                    marker.bindPopup(popupHtml, {
+                        maxWidth: 300,
+                        minWidth: 240,
+                        closeButton: true,
+                        autoClose: true,
+                        closeOnEscapeKey: true,
+                        className: ''
+                    });
+                    // Tooltip (on hover)
+                    if (name && name !== 'Tidak diketahui') {
+                        marker.bindTooltip(name, {
+                            direction: 'top',
+                            offset: [0, -5],
+                            opacity: 0.95,
+                            sticky: false
+                        });
+                    }
+                    // Store name for search
+                    marker.feature = feature;
+                    marker._searchName = name;
+                    marker._catKey = catKey;
+                    // Add to cluster group
+                    markerClusterGroups[catKey].addLayer(marker);
+                    // Add to search layer
+                    if (name && name !== 'Tidak diketahui') {
+                        searchLayer.addLayer(marker);
+                    }
+                } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+                    // ---- POLYGON GEOMETRY ----
+                    var cat = CATEGORIES[catKey] || CATEGORIES.shop;
+                    var polygonCoords = [];
+                    if (geomType === 'Polygon') {
+                        polygonCoords = feature.geometry.coordinates.map(function(ring) {
+                            return ring.map(function(c) { return [c[1], c[0]]; });
+                        });
+                    } else {
+                        // MultiPolygon
+                        feature.geometry.coordinates.forEach(function(polygon) {
+                            polygon.forEach(function(ring) {
+                                polygonCoords.push(ring.map(function(c) { return [c[1], c[0]]; }));
+                            });
+                        });
+                    }
+                    var polygon = L.polygon(polygonCoords, {
+                        color: cat.color,
+                        weight: 2,
+                        opacity: 0.8,
+                        fillColor: cat.color,
+                        fillOpacity: 0.25,
+                        smoothFactor: 1
+                    });
+                    // Popup
+                    polygon.bindPopup(popupHtml, {
+                        maxWidth: 300,
+                        minWidth: 240,
+                        closeButton: true,
+                        autoClose: true,
+                        closeOnEscapeKey: true
+                    });
+                    // Tooltip
+                    if (name && name !== 'Tidak diketahui') {
+                        polygon.bindTooltip(name, {
+                            direction: 'top',
+                            sticky: true,
+                            opacity: 0.95
+                        });
+                    }
+                    // Hover highlight effect
+                    polygon.on('mouseover', function(e) {
+                        this.setStyle({
+                            weight: 3,
+                            fillOpacity: 0.45,
+                            opacity: 1
+                        });
+                    });
+                    polygon.on('mouseout', function(e) {
+                        this.setStyle({
+                            weight: 2,
+                            fillOpacity: 0.25,
+                            opacity: 0.8
+                        });
+                    });
+                    polygon.feature = feature;
+                    polygon._searchName = name;
+                    polygon._catKey = catKey;
+                    // Add polygon to the cluster group (will render on map)
+                    markerClusterGroups[catKey].addLayer(polygon);
+                    // For search - add a marker at the centroid
+                    if (name && name !== 'Tidak diketahui') {
+                        var center = polygon.getBounds().getCenter();
+                        var searchMarker = L.marker(center, {
+                            icon: createSVGIcon(catKey),
+                            opacity: 0
+                        });
+                        searchMarker._searchName = name;
+                        searchMarker._catKey = catKey;
+                        searchMarker._linkedPolygon = polygon;
+                        searchMarker.feature = feature;
+                        searchMarker.bindPopup(popupHtml, {
+                            maxWidth: 300,
+                            minWidth: 240,
+                            closeButton: true
+                        });
+                        searchLayer.addLayer(searchMarker);
+                    }
+                } else if (geomType === 'LineString' || geomType === 'MultiLineString') {
+                    // ---- LINE GEOMETRY ----
+                    var cat = CATEGORIES[catKey] || CATEGORIES.shop;
+                    var lineCoords = [];
+                    if (geomType === 'LineString') {
+                        lineCoords = feature.geometry.coordinates.map(function(c) {
+                            return [c[1], c[0]];
+                        });
+                    } else {
+                        lineCoords = feature.geometry.coordinates.map(function(line) {
+                            return line.map(function(c) { return [c[1], c[0]]; });
+                        });
+                    }
+                    var polyline = (geomType === 'LineString')
+                        ? L.polyline(lineCoords, { color: cat.color, weight: 3, opacity: 0.8 })
+                        : L.polyline(lineCoords, { color: cat.color, weight: 3, opacity: 0.8 });
+                    polyline.bindPopup(popupHtml, {
+                        maxWidth: 300,
+                        minWidth: 240,
+                        closeButton: true
+                    });
+                    if (name && name !== 'Tidak diketahui') {
+                        polyline.bindTooltip(name, {
+                            direction: 'top',
+                            sticky: true,
+                            opacity: 0.95
+                        });
+                    }
+                    // Hover highlight
+                    polyline.on('mouseover', function() {
+                        this.setStyle({ weight: 5, opacity: 1 });
+                    });
+                    polyline.on('mouseout', function() {
+                        this.setStyle({ weight: 3, opacity: 0.8 });
+                    });
+                    polyline.feature = feature;
+                    polyline._catKey = catKey;
+                    markerClusterGroups[catKey].addLayer(polyline);
+                }
+            });
+            // Update statistics UI
+            updateStats();
+            // Setup search control
+            setupSearch();
+        }
+        // ============================================================
+        // UPDATE STATISTICS
+        // ============================================================
+        function updateStats() {
+            // Animate count up
+            animateCount('stat-total', stats.total);
+            animateCount('stat-restaurant', stats.restaurant);
+            animateCount('stat-cafe', stats.cafe);
+            animateCount('stat-hotel', stats.hotel);
+            animateCount('stat-shop', stats.shop);
+            animateCount('stat-tourism', stats.tourism);
+            animateCount('stat-police', stats.police);
+            // Update legend counts
+            document.getElementById('legend-count-restaurant').textContent = stats.restaurant;
+            document.getElementById('legend-count-cafe').textContent = stats.cafe;
+            document.getElementById('legend-count-hotel').textContent = stats.hotel;
+            document.getElementById('legend-count-shop').textContent = stats.shop;
+            document.getElementById('legend-count-tourism').textContent = stats.tourism;
+            document.getElementById('legend-count-police').textContent = stats.police;
+        }
+        function animateCount(elementId, target) {
+            var el = document.getElementById(elementId);
+            if (!el) return;
+            var start = 0;
+            var duration = 800;
+            var startTime = null;
+            function step(timestamp) {
+                if (!startTime) startTime = timestamp;
+                var progress = Math.min((timestamp - startTime) / duration, 1);
+                var eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                el.textContent = Math.floor(eased * target);
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    el.textContent = target;
+                }
+            }
+            requestAnimationFrame(step);
+        }
+        // ============================================================
+        // SEARCH CONTROL
+        // ============================================================
+        function setupSearch() {
+            var searchControl = new L.Control.Search({
+                layer: searchLayer,
+                propertyName: '_searchName',
+                initial: false,
+                zoom: 17,
+                marker: false,
+                moveToLocation: function(latlng, title, map) {
+                    map.setView(latlng, 17);
+                },
+                textPlaceholder: 'Cari hotel, restoran, kafe...',
+                textErr: 'Lokasi tidak ditemukan',
+                position: 'topleft',
+                autoCollapse: true,
+                minLength: 2,
+                casesensitive: false
+            });
+            // When location is found
+            searchControl.on('search:locationfound', function(e) {
+                var layer = e.layer;
+                // If linked polygon, highlight it
+                if (layer._linkedPolygon) {
+                    var poly = layer._linkedPolygon;
+                    poly.setStyle({
+                        weight: 4,
+                        fillOpacity: 0.5,
+                        opacity: 1
+                    });
+                    setTimeout(function() {
+                        poly.setStyle({
+                            weight: 2,
+                            fillOpacity: 0.25,
+                            opacity: 0.8
+                        });
+                    }, 3000);
+                    poly.openPopup();
+                    map.fitBounds(poly.getBounds(), { padding: [50, 50] });
+                } else {
+                    // Open popup on the found marker
+                    layer.openPopup();
+                    // Highlight effect with a temporary circle
+                    var highlightCircle = L.circleMarker(e.latlng, {
+                        radius: 25,
+                        color: '#8b5cf6',
+                        fillColor: '#8b5cf6',
+                        fillOpacity: 0.3,
+                        weight: 3
+                    }).addTo(map);
+                    // Animate shrink and remove
+                    var size = 25;
+                    var interval = setInterval(function() {
+                        size -= 0.5;
+                        if (size <= 0) {
+                            clearInterval(interval);
+                            map.removeLayer(highlightCircle);
+                        } else {
+                            highlightCircle.setRadius(size);
+                            highlightCircle.setStyle({
+                                fillOpacity: size / 50,
+                                opacity: size / 25
+                            });
+                        }
+                    }, 30);
+                }
+            });
+            map.addControl(searchControl);
+        }
+        // ============================================================
+        // LAYER TOGGLE HANDLERS
+        // ============================================================
+        var layerCheckboxes = {
+            restaurant: document.getElementById('layer-restaurant'),
+            cafe: document.getElementById('layer-cafe'),
+            hotel: document.getElementById('layer-hotel'),
+            shop: document.getElementById('layer-shop'),
+            tourism: document.getElementById('layer-tourism'),
+            police: document.getElementById('layer-police')
+        };
+        Object.keys(layerCheckboxes).forEach(function(key) {
+            var cb = layerCheckboxes[key];
+            if (!cb) return;
+            cb.addEventListener('change', function() {
+                if (this.checked) {
+                    map.addLayer(markerClusterGroups[key]);
+                } else {
+                    map.removeLayer(markerClusterGroups[key]);
+                }
+            });
+        });
+        // ============================================================
+        // SIDEBAR TOGGLE (mobile)
+        // ============================================================
+        var sidebar = document.getElementById('sidebar');
+        var toggleBtn = document.getElementById('toggle-sidebar-btn');
+        toggleBtn.addEventListener('click', function() {
+            sidebar.classList.toggle('open');
+        });
+        // Close sidebar when clicking on map (mobile)
+        document.getElementById('map').addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('open');
+            }
+        });
+        // ============================================================
+        // LOADING & ERROR
+        // ============================================================
+        function hideLoading() {
+            var overlay = document.getElementById('loading-overlay');
+            overlay.classList.add('hidden');
+            setTimeout(function() {
+                overlay.style.display = 'none';
+            }, 500);
+        }
+        function showError(message) {
+            var toast = document.getElementById('error-toast');
+            toast.textContent = '⚠️ ' + message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 6000);
+        }
+        // ============================================================
+        // INVALIDATE MAP SIZE (ensures proper rendering)
+        // ============================================================
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 100);
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+        });
+        // ============================================================
+        // INIT: Load data
+        // ============================================================
+        loadGeoJSON();
+    })();
+    </script>
 </body>
 </html>
