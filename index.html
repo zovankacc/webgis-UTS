@@ -1102,7 +1102,8 @@
         // ============================================================
         var layerGroups = {};
         var markerClusterGroups = {};
-        // Create a cluster group + layer group for each category
+        var vectorGroups = {}; // Standard layer groups for non-point vector features (polygons, polylines)
+        // Create a cluster group + vector group for each category
         Object.keys(CATEGORIES).forEach(function(key) {
             markerClusterGroups[key] = L.markerClusterGroup({
                 maxClusterRadius: 50,
@@ -1111,8 +1112,11 @@
                 zoomToBoundsOnClick: true,
                 disableClusteringAtZoom: 18
             });
+            vectorGroups[key] = L.layerGroup();
             layerGroups[key] = markerClusterGroups[key];
+            
             map.addLayer(markerClusterGroups[key]);
+            map.addLayer(vectorGroups[key]);
         });
         // ============================================================
         // STATISTICS COUNTERS
@@ -1134,7 +1138,7 @@
         // LOAD GEOJSON DATA
         // ============================================================
         function loadGeoJSON() {
-            fetch('data/data.geojson')
+            fetch('data.geojson')
                 .then(function(response) {
                     if (!response.ok) {
                         throw new Error('HTTP Error: ' + response.status);
@@ -1264,8 +1268,8 @@
                     polygon.feature = feature;
                     polygon._searchName = name;
                     polygon._catKey = catKey;
-                    // Add polygon to the cluster group (will render on map)
-                    markerClusterGroups[catKey].addLayer(polygon);
+                    // Add polygon to the vector group (will render on map)
+                    vectorGroups[catKey].addLayer(polygon);
                     // For search - add a marker at the centroid
                     if (name && name !== 'Tidak diketahui') {
                         var center = polygon.getBounds().getCenter();
@@ -1321,7 +1325,7 @@
                     });
                     polyline.feature = feature;
                     polyline._catKey = catKey;
-                    markerClusterGroups[catKey].addLayer(polyline);
+                    vectorGroups[catKey].addLayer(polyline);
                 }
             });
             // Update statistics UI
@@ -1394,6 +1398,15 @@
                 // If linked polygon, highlight it
                 if (layer._linkedPolygon) {
                     var poly = layer._linkedPolygon;
+                    
+                    // Auto-enable the category layer if disabled
+                    var catKey = poly._catKey;
+                    var cb = layerCheckboxes[catKey];
+                    if (cb && !cb.checked) {
+                        cb.checked = true;
+                        map.addLayer(markerClusterGroups[catKey]);
+                        map.addLayer(vectorGroups[catKey]);
+                    }
                     poly.setStyle({
                         weight: 4,
                         fillOpacity: 0.5,
@@ -1409,8 +1422,23 @@
                     poly.openPopup();
                     map.fitBounds(poly.getBounds(), { padding: [50, 50] });
                 } else {
-                    // Open popup on the found marker
-                    layer.openPopup();
+                    // Auto-enable the category layer if disabled
+                    var catKey = layer._catKey;
+                    var cb = layerCheckboxes[catKey];
+                    if (cb && !cb.checked) {
+                        cb.checked = true;
+                        map.addLayer(markerClusterGroups[catKey]);
+                        map.addLayer(vectorGroups[catKey]);
+                    }
+                    // Open popup on the found marker (handling clustered spiderfying)
+                    var cg = markerClusterGroups[catKey];
+                    if (cg) {
+                        cg.zoomToShowLayer(layer, function() {
+                            layer.openPopup();
+                        });
+                    } else {
+                        layer.openPopup();
+                    }
                     // Highlight effect with a temporary circle
                     var highlightCircle = L.circleMarker(e.latlng, {
                         radius: 25,
@@ -1455,8 +1483,10 @@
             cb.addEventListener('change', function() {
                 if (this.checked) {
                     map.addLayer(markerClusterGroups[key]);
+                    map.addLayer(vectorGroups[key]);
                 } else {
                     map.removeLayer(markerClusterGroups[key]);
+                    map.removeLayer(vectorGroups[key]);
                 }
             });
         });
